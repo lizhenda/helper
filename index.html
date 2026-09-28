@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>习惯养成</title>
+<style>
+:root{
+  --blue:#4A90D9;--blue-lt:#E8F2FC;--blue-dk:#3A7BC8;
+  --bg:#F5F7FA;--card:#fff;--text:#333;--text-2:#888;
+  --radius:12px;--shadow:0 2px 12px rgba(0,0,0,.08);
+  --glass-bg:rgba(255,255,255,.92);--glass-bd:rgba(74,144,217,.2);
+}
+[data-mode="child"]{--accent:#FF6B9D;--accent-lt:#FFF0F5;--accent-dk:#E85585;
+  --bg:#FFF8FB;--card:#fff;--radius:16px;--shadow:0 4px 16px rgba(255,107,157,.12)}
+[data-mode="teen"]{--accent:#4A90D9;--accent-lt:#E8F2FC;--accent-dk:#3A7BC8}
+[data-mode="simple"]{--accent:#5B6B7D;--accent-lt:#EEF1F4;--accent-dk:#4A5A6D;--radius:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);
+  transition:background .3s;min-height:100vh}
+/* layout */
+.app{max-width:720px;margin:0 auto;padding:16px 16px 90px}
+/* header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:8px 0 16px}
+.header h1{font-size:20px;color:var(--accent);font-weight:700}
+.header .actions{display:flex;gap:8px;align-items:center}
+.back-btn{display:flex;align-items:center;gap:4px;padding:8px 14px;border:none;border-radius:20px;
+  background:var(--accent-lt);color:var(--accent);font-size:14px;font-weight:500;cursor:pointer}
+.back-btn:active{opacity:.7}
+/* progress ring */
+.progress-section{display:flex;align-items:center;gap:16px;padding:16px;background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
+.ring{position:relative;width:64px;height:64px;flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring .bg-c{fill:none;stroke:var(--accent-lt);stroke-width:6}
+.ring .fg-c{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .5s}
+.ring .pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;font-weight:700;color:var(--accent)}
+.progress-info{flex:1}
+.progress-info .label{font-size:13px;color:var(--text-2);margin-bottom:4px}
+.progress-info .streak{font-size:15px;font-weight:600}
+.progress-info .streak .fire{color:#FF6B35}
+/* stat cards */
+.stat-row{display:flex;gap:10px;margin-bottom:16px}
+.stat-card{flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px 10px;text-align:center}
+.stat-card .num{font-size:22px;font-weight:700;color:var(--accent)}
+.stat-card .lbl{font-size:11px;color:var(--text-2);margin-top:4px}
+/* habit list */
+.section-title{font-size:16px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.section-title .add-link{font-size:13px;color:var(--accent);cursor:pointer;font-weight:400}
+.habit-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;cursor:pointer;
+  transition:all .2s;border:2px solid transparent}
+.habit-item:active{transform:scale(.98)}
+.habit-item.done{opacity:.6}
+.habit-item.done .habit-name{text-decoration:line-through}
+.habit-item.locked{opacity:.65;background:#f7f8fa}
+.habit-item.locked .habit-name{color:var(--text-2)}
+.habit-lock{display:block;font-size:11px;color:#b0a0a0;font-weight:600;margin-top:4px}
+.habit-item.locked .habit-check{border-color:#ccc;color:#999}
+.habit-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;flex-shrink:0;background:var(--accent-lt)}
+.habit-body{flex:1;min-width:0}
+.habit-name{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.habit-meta{font-size:12px;color:var(--text-2);margin-top:3px;display:flex;gap:8px;align-items:center}
+.habit-meta .pts{color:var(--accent);font-weight:600}
+.habit-meta .pts.punish{color:#e74c3c;font-weight:700}
+.habit-meta .pts .punish-tip{font-size:10px;color:#e74c3c;opacity:.8;font-weight:400}
+.pts-punish-lbl{font-size:11px;color:#e74c3c;font-weight:500}
+.habit-item.punish-item .habit-check{border-color:#e74c3c}
+.habit-item.punish-item.done .habit-check{background:#e74c3c;color:#fff;border-color:#e74c3c}
+.habit-item.punish-item.done{opacity:1}
+.habit-item.punish-item.done .habit-name{text-decoration:line-through;color:var(--text-2)}
+.habit-goal{display:block;font-size:11px;color:var(--accent);font-weight:600;margin-top:4px}
+.habit-goal .g-bar{display:block;height:4px;background:var(--accent-lt);border-radius:2px;margin-top:4px;overflow:hidden}
+.habit-goal .g-bar .g-fill{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .4s}
+.habit-check{width:28px;height:28px;border-radius:50%;border:2.5px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s}
+.habit-item.done .habit-check{background:var(--accent);color:#fff}
+.habit-check .ck{font-size:16px;opacity:0;transition:opacity .2s}
+.habit-item.done .habit-check .ck{opacity:1}
+[data-mode="child"] .habit-item{padding:16px}
+[data-mode="child"] .habit-icon{width:56px;height:56px;font-size:30px;border-radius:16px}
+[data-mode="child"] .habit-name{font-size:18px}
+[data-mode="child"] .habit-check{width:36px;height:36px}
+[data-mode="child"] .habit-check .ck{font-size:22px}
+/* tabs */
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);
+  box-shadow:0 -2px 12px rgba(0,0,0,.06);z-index:100;max-width:720px;margin:0 auto}
+.tab{flex:1;padding:12px 0;text-align:center;cursor:pointer;color:var(--text-2);transition:color .2s;border:none;background:none}
+.tab .tab-ic{font-size:24px;display:block}
+.tab .tab-lb{font-size:11px;display:block;margin-top:3px;font-weight:500}
+.tab.active{color:var(--accent)}
+[data-mode="child"] .tab .tab-lb{font-size:12px}
+[data-mode="child"] .tab .tab-ic{font-size:28px}
+/* mine: profile */
+.mine-profile{display:flex;align-items:center;gap:14px;padding:18px;background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
+.mine-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:36px;flex-shrink:0;overflow:hidden}
+.mine-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.user-chip img,.mc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.mine-info{flex:1;min-width:0}
+.mine-name{font-size:18px;font-weight:700;color:var(--accent)}
+.mine-meta{font-size:12px;color:var(--text-2);margin-top:4px}
+.mine-points{font-size:22px;font-weight:700;color:var(--accent);flex-shrink:0}
+.mine-points .lbl{display:block;font-size:11px;color:var(--text-2);font-weight:400;text-align:center}
+.switch-user-btn{flex-shrink:0;padding:8px 14px;border:none;border-radius:20px;background:var(--accent-lt);
+  color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.switch-user-btn:active{opacity:.7}
+[data-mode="child"] .mine-avatar{width:76px;height:76px;font-size:44px}
+[data-mode="child"] .mine-name{font-size:20px}
+/* mine: member switch grid */
+.member-grid{display:flex;gap:10px;overflow-x:auto;padding:2px 0 14px;-ms-overflow-style:none;scrollbar-width:none}
+.member-grid::-webkit-scrollbar{display:none}
+.member-card{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:14px 18px;border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);
+  cursor:pointer;border:2.5px solid transparent;transition:all .2s;min-width:84px}
+.member-card.active{border-color:var(--accent);background:var(--accent-lt)}
+.member-card .mc-avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:26px;overflow:hidden}
+.member-card .mc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.member-card .mc-name{font-size:13px;font-weight:500}
+.member-card .mc-pts{font-size:11px;color:var(--text-2)}
+.member-card.add{border-style:dashed;border-color:#ccc;background:transparent;box-shadow:none}
+.member-card.add .mc-add{font-size:28px;color:var(--accent);width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+[data-mode="child"] .member-card .mc-avatar{width:58px;height:58px;font-size:32px}
+/* mine: menu list */
+.menu-list{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.menu-item{display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;transition:background .15s;
+  border-bottom:1px solid #f2f2f2}
+.menu-item:last-child{border-bottom:none}
+.menu-item:active{background:var(--accent-lt)}
+.menu-item .m-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;flex-shrink:0;background:var(--accent-lt)}
+.menu-item .m-body{flex:1}
+.menu-item .m-name{font-size:15px;font-weight:500}
+.menu-item .m-desc{font-size:11px;color:var(--text-2);margin-top:2px}
+.menu-item .m-arrow{font-size:20px;color:var(--text-2);flex-shrink:0}
+[data-mode="child"] .menu-item{padding:18px}
+[data-mode="child"] .menu-item .m-ic{width:50px;height:50px;font-size:28px}
+[data-mode="child"] .menu-item .m-name{font-size:17px}
+/* history log */
+.log-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px}
+.log-item .l-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0;background:var(--accent-lt)}
+.log-item .l-body{flex:1;min-width:0}
+.log-item .l-title{font-size:14px;font-weight:500}
+.log-item .l-time{font-size:11px;color:var(--text-2);margin-top:2px}
+.log-item .l-pts{font-size:16px;font-weight:700;flex-shrink:0}
+.log-item .l-pts.plus{color:#4CAF50}
+.log-item .l-pts.minus{color:#F44336}
+[data-mode="child"] .log-item{padding:14px}
+[data-mode="child"] .log-item .l-ic{width:44px;height:44px;font-size:24px}
+[data-mode="child"] .log-item .l-title{font-size:16px}
+/* reward & badge grid */
+.reward-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.reward-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:16px 12px;text-align:center;cursor:pointer;transition:all .2s;border:2px solid transparent}
+.reward-card:active{transform:scale(.96)}
+.reward-card .r-ic{font-size:36px;margin-bottom:8px}
+.reward-card .r-nm{font-size:14px;font-weight:500;margin-bottom:6px}
+.reward-card .r-pts{font-size:13px;color:var(--accent);font-weight:600}
+.reward-card.disabled{opacity:.45;cursor:not-allowed}
+.badge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.badge-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px 8px;text-align:center}
+.badge-card.locked{opacity:.4;filter:grayscale(.6)}
+.badge-card .b-ic{font-size:34px;margin-bottom:6px}
+.badge-card .b-nm{font-size:12px;font-weight:500}
+.badge-card .b-desc{font-size:10px;color:var(--text-2);margin-top:4px}
+/* admin view */
+.compare-chart{display:flex;gap:12px;margin-bottom:16px}
+.compare-col{flex:1;text-align:center}
+.compare-bar{height:100px;background:var(--accent-lt);border-radius:8px;position:relative;
+  overflow:hidden;display:flex;align-items:flex-end;margin-bottom:8px}
+.compare-bar .fill{width:100%;background:var(--accent);border-radius:8px;transition:height .5s}
+.compare-col .nm{font-size:12px;color:var(--text-2)}
+.compare-col .pct{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.approval-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px}
+.approval-item .a-ic{font-size:28px}
+.approval-item .a-body{flex:1}
+.approval-item .a-nm{font-size:14px;font-weight:500}
+.approval-item .a-meta{font-size:12px;color:var(--text-2);margin-top:2px}
+.approval-item .a-btns{display:flex;gap:8px}
+.a-btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500}
+.a-btn.approve{background:var(--accent);color:#fff}
+.a-btn.reject{background:#eee;color:#666}
+.empty{text-align:center;padding:40px 20px;color:var(--text-2)}
+.empty .em-ic{font-size:48px;margin-bottom:12px;opacity:.4}
+/* modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);
+  backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--glass-bg);border:1px solid var(--glass-bd);border-radius:20px 20px 0 0;
+  width:100%;max-width:720px;max-height:85vh;overflow-y:auto;padding:20px;animation:slideUp .3s}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-size:18px;margin-bottom:16px;color:var(--accent)}
+.modal .close-btn{position:absolute;top:16px;right:20px;font-size:24px;cursor:pointer;color:var(--text-2);background:none;border:none}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;color:var(--text-2);margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;
+  background:#fff;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);outline:none}
+.color-presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.color-presets .cp{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;
+  transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.color-presets .cp:hover{transform:scale(1.12)}
+.color-presets .cp.sel{border-color:#333;transform:scale(1.1)}
+.color-custom{display:flex;align-items:center;gap:10px}
+.color-custom input[type="color"]{width:44px;height:34px;border:none;border-radius:8px;cursor:pointer;padding:2px;background:#f0f0f0}
+.color-custom .cc-lbl{font-size:12px;color:var(--text-2)}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+.btn-primary{width:100%;padding:14px;border:none;border-radius:10px;background:var(--accent);
+  color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:opacity .2s}
+.btn-primary:active{opacity:.8}
+.btn-danger{width:100%;padding:12px;border:none;border-radius:10px;background:#fee;color:#c33;
+  font-size:14px;font-weight:500;cursor:pointer;margin-top:10px}
+/* toast */
+.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  background:rgba(0,0,0,.75);color:#fff;padding:16px 24px;border-radius:16px;font-size:16px;
+  z-index:300;transition:transform .3s;pointer-events:none;text-align:center}
+.toast.show{transform:translate(-50%,-50%) scale(1)}
+.toast .t-ic{font-size:40px;display:block;margin-bottom:8px}
+/* celebration overlay */
+.celebrate{position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;pointer-events:none;
+  display:none;align-items:center;justify-content:center}
+.celebrate.show{display:flex}
+.celebrate .emoji{position:absolute;font-size:28px;animation:pop .8s ease-out forwards}
+@keyframes pop{0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(-300px) scale(.3)}}
+.celebrate .center-star{font-size:80px;animation:starPulse .6s ease-out}
+@keyframes starPulse{0%{transform:scale(0) rotate(-180deg)}60%{transform:scale(1.3) rotate(10deg)}
+  100%{transform:scale(1) rotate(0)}}
+.hidden{display:none!important}
+/* storage banner */
+.storage-banner{display:none;background:#FFF4E0;border:1px solid #FFD28A;color:#9A6A00;
+  padding:12px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;line-height:1.6}
+.storage-banner .sb-t{font-weight:700;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- Storage Warning Banner -->
+<div class="storage-banner" id="storageBanner">
+  <div class="sb-t">⚠️ 浏览器无法保存数据</div>
+  当前浏览器禁用了本地存储（localStorage），打卡与积分等记录仅本次浏览有效，刷新或关闭页面后会丢失。请检查浏览器隐私设置，或改用 Chrome / Edge 等支持本地存储的浏览器。
+</div>
+
+<!-- Header -->
+<div class="header">
+  <h1 id="pageTitle">习惯养成</h1>
+  <div class="actions" id="headerActions"></div>
+</div>
+
+<!-- Main Content -->
+<div id="mainContent"></div>
+
+</div>
+
+<!-- Bottom Tabs -->
+<div class="tabs" id="bottomTabs">
+  <button class="tab active" data-tab="habits" onclick="switchTab('habits')">
+    <span class="tab-ic">📋</span><span class="tab-lb">打卡</span>
+  </button>
+  <button class="tab" data-tab="mine" onclick="switchTab('mine')">
+    <span class="tab-ic">👤</span><span class="tab-lb">我的</span>
+  </button>
+</div>
+
+<!-- Modal Container -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Celebration -->
+<div class="celebrate" id="celebrate"></div>
+
+<script>
+// ======================== Data Layer ========================
+const STORAGE_KEY='habit_tracker_v1';
+let state={members:[],currentMemberId:null,currentTab:'habits',mineView:'main',adminUnlocked:false,adminPwd:'1234',habitTemplates:[]};
+let cachedData=null;
+// 存储兼容性状态：storageOK 表示 localStorage 可用；storageMode='local'|'memory'
+let storageOK=true,storageMode='local',storageNote='';
+
+// ---------- 浏览器存储兼容性检测 ----------
+// 检测 localStorage 是否真正可用（隐私模式/禁用存储时访问会抛异常）
+function testLocalStorage(){
+  try{
+    const k='__habit_test__';
+    window.localStorage.setItem(k,'1');
+    const v=window.localStorage.getItem(k);
+    window.localStorage.removeItem(k);
+    if(v!=='1')throw new Error('readback failed');
+    return true;
+  }catch(e){return false;}
+}
+// 估算已用存储量（字节），不可用时返回 0
+function calcStorageUsed(){
+  try{
+    let bytes=0;
+    for(let i=0;i<window.localStorage.length;i++){
+      const k=window.localStorage.key(i);
+      if(!k)continue;
+      const v=window.localStorage.getItem(k)||'';
+      bytes+=(k.length+v.length)*2; // UTF-16 约 2 字节/字符
+    }
+    return bytes;
+  }catch(e){return 0;}
+}
+// 检测浏览器兼容性，结果写入全局；返回对象
+let storageDetected=false;
+function detectStorage(){
+  const info={ok:true,mode:'local',note:'',used:0};
+  if(storageDetected){
+    // 快速返回缓存结果（但仍实时计算占用）
+    info.ok=storageOK;info.mode=storageMode;info.note=storageNote;
+    if(storageOK){try{info.bytes=calcStorageUsed();}catch(e){info.bytes=0;}}
+    return info;
+  }
+  storageDetected=true;
+  try{
+    if(typeof window.localStorage==='undefined'){
+      info.ok=false;info.note='当前浏览器不支持 localStorage';
+    }else if(!testLocalStorage()){
+      info.ok=false;info.note='浏览器禁用了本地存储（可能处于隐私模式或站点数据被禁用）';
+    }else{
+      info.ok=true;info.note='';
+      try{info.bytes=calcStorageUsed();}catch(e){info.bytes=0;}
+    }
+  }catch(e){
+    // 访问 localStorage 本身抛异常（如隐私模式）
+    info.ok=false;info.note='浏览器禁用了本地存储（可能处于隐私模式或站点数据被禁用）';
+  }
+  storageOK=info.ok;
+  storageMode=info.ok?'local':'memory';
+  storageNote=info.note;
+  return info;
+}
+function applyStorageBanner(){
+  const b=document.getElementById('storageBanner');
+  if(b){b.style.display=storageOK?'none':'block';}
+}
+// 统一的存储读写：localStorage 不可用时降级为内存（本次会话内可用）
+function storageGet(k){
+  if(storageOK){try{return window.localStorage.getItem(k);}catch(e){}}
+  return (window.__memStore&&window.__memStore[k])||null;
+}
+function storageSet(k,v){
+  if(storageOK){try{window.localStorage.setItem(k,v);return;}catch(e){}}
+  if(!window.__memStore)window.__memStore={};
+  window.__memStore[k]=v;
+}
+function storageRemove(k){
+  if(storageOK){try{window.localStorage.removeItem(k);return;}catch(e){}}
+  if(window.__memStore)delete window.__memStore[k];
+}
+
+function loadData(){
+  try{const raw=storageGet(STORAGE_KEY);
+    if(raw){cachedData=JSON.parse(raw);return cachedData;}
+  }catch(e){console.error('load error',e)}
+  return null;
+}
+function saveData(){
+  storageSet(STORAGE_KEY,JSON.stringify(state));
+}
+
+const DEFAULT_TEMPLATES=[
+  {id:'t1',name:'完成作业',icon:'✏️',points:3,freq:'daily',days:[1,2,3,4,5]},
+  {id:'t2',name:'阅读20分钟',icon:'📖',points:2,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t3',name:'练字一页',icon:'✍️',points:2,freq:'daily',days:[1,2,3,4,5]},
+  {id:'t4',name:'自己刷牙',icon:'🪥',points:2,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t5',name:'自己穿衣',icon:'👕',points:2,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t6',name:'收拾玩具',icon:'🧸',points:1,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t7',name:'跳绳100下',icon:'🤸',points:2,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t8',name:'早睡9点前',icon:'😴',points:1,freq:'daily',days:[1,2,3,4,5,6,7]},
+  {id:'t9',name:'整理书桌',icon:'🧹',points:1,freq:'daily',days:[1,2,3,4,5]},
+  {id:'t10',name:'多喝水',icon:'💧',points:1,freq:'daily',days:[1,2,3,4,5,6,7]}
+];
+
+function loadData(){
+  try{const raw=storageGet(STORAGE_KEY);
+    if(raw){cachedData=JSON.parse(raw);return cachedData;}
+  }catch(e){console.error('load error',e)}
+  return null;
+}
+function saveData(){
+  storageSet(STORAGE_KEY,JSON.stringify(state));
+}
+function initState(){
+  const saved=loadData();
+  if(saved&&saved.members&&saved.members.length>0){
+    state=saved;
+    if(!state.currentMemberId&&state.members[0])state.currentMemberId=state.members[0].id;
+    if(!state.currentTab)state.currentTab='habits';
+    if(state.adminUnlocked===undefined)state.adminUnlocked=false;
+    if(!state.adminPwd)state.adminPwd='1234';
+    if(!state.habitTemplates){
+      state.habitTemplates=DEFAULT_TEMPLATES.map(t=>({...t}));
+    }
+    if(!state.adminPwd)state.adminPwd='1234';
+    state.adminUnlocked=false; // 管理解锁仅对当前会话有效，刷新页面后需重新输入口令
+    if(state.mineView==='admin')state.mineView='main'; // 未解锁时不允许停留在管理页
+    saveData(); // persist migrations immediately
+    // migrate old tabs to new model
+    if(['rewards','badges','history'].includes(state.currentTab)){
+      state.mineView=state.currentTab;state.currentTab='mine';
+    }
+    if(state.currentTab==='admin'){state.currentTab='mine';if(state.adminUnlocked)state.mineView='admin';else state.mineView='main'}
+    if(!state.mineView)state.mineView='main';
+  }else{
+    seedDefaultData();
+  }
+}
+function seedDefaultData(){
+  const today=todayStr();
+  state={
+    members:[
+      {id:'m1',name:'姐姐',avatar:'👧',mode:'teen',color:'#FF6B9D',points:0,createdAt:today,
+        habits:[
+          {id:'h1',name:'完成作业',icon:'✏️',points:3,freq:'daily',days:[1,2,3,4,5],active:true},
+          {id:'h2',name:'阅读20分钟',icon:'📖',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h3',name:'练字一页',icon:'✍️',points:2,freq:'daily',days:[1,2,3,4,5],active:true},
+          {id:'h4',name:'整理书包',icon:'🎒',points:1,freq:'daily',days:[1,2,3,4,5],active:true},
+          {id:'h5',name:'跳绳100下',icon:'🤸',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h6',name:'早睡9点前',icon:'😴',points:1,freq:'daily',days:[1,2,3,4,5,6,7],active:true}
+        ],
+        checkins:{},rewards:[],badges:[],pendingRewards:[],pointLog:[]
+      },
+      {id:'m2',name:'弟弟',avatar:'👦',mode:'child',color:'#4A90D9',points:0,createdAt:today,
+        habits:[
+          {id:'h1',name:'自己刷牙',icon:'🪥',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h2',name:'自己穿衣',icon:'👕',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h3',name:'收拾玩具',icon:'🧸',points:1,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h4',name:'听故事',icon:'📚',points:1,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+          {id:'h5',name:'多喝水',icon:'💧',points:1,freq:'daily',days:[1,2,3,4,5,6,7],active:true}
+        ],
+        checkins:{},rewards:[],badges:[],pendingRewards:[],pointLog:[]
+      }
+    ],
+    rewardTemplates:[
+      {id:'r1',name:'看动画片30分钟',icon:'📺',points:10},
+      {id:'r2',name:'去游乐场玩',icon:'🎡',points:30},
+      {id:'r3',name:'选一个小玩具',icon:'🧩',points:50},
+      {id:'r4',name:'吃冰淇淋',icon:'🍦',points:15},
+      {id:'r5',name:'零花钱5元',icon:'💰',points:20},
+      {id:'r6',name:'和爸爸下棋',icon:'♟️',points:8}
+    ],
+    badgeDefs:[
+      {id:'b1',name:'初次打卡',icon:'🌟',desc:'完成第一次打卡',days:1},
+      {id:'b2',name:'坚持3天',icon:'🔥',desc:'连续打卡3天',days:3},
+      {id:'b3',name:'一周达人',icon:'🏆',desc:'连续打卡7天',days:7},
+      {id:'b4',name:'半月英雄',icon:'👑',desc:'连续打卡15天',days:15},
+      {id:'b5',name:'30天冠军',icon:'💎',desc:'连续打卡30天',days:30}
+    ],
+    currentMemberId:'m1',currentTab:'habits',mineView:'main',adminUnlocked:false,adminPwd:'1234',
+    habitTemplates:DEFAULT_TEMPLATES.map(t=>({...t}))
+  };
+  saveData();
+}
+
+// ======================== 惩罚任务结算 ========================
+// 每日打开页面时，结算「昨天」未打卡的惩罚任务（负分任务）：没做到即扣分，扣到 0 为止
+function settlePunishments(){
+  if(!state||!state.members)return;
+  const yesterday=dateStrOffset(-1);
+  let changed=false;
+  state.members.forEach(m=>{
+    const settled=(m._punishSettled)||{};
+    if(settled[yesterday])return; // 昨天已结算过，防止重复扣
+    const ci=m.checkins[yesterday]||{};
+    m.habits.forEach(h=>{
+      if(h.points>=0)return;          // 仅处理惩罚任务（负分）
+      if(!h.active)return;
+      if(!isHabitToday(h,yesterdayDow()))return; // 昨天不是执行日不扣
+      if(ci[h.id])return;             // 昨天已打卡（做到了）不扣
+      const cur=m.points;
+      const amount=Math.min(Math.abs(h.points),cur); // 扣到 0 为止
+      if(amount<=0){m.points=0;return}
+      m.points-=amount;
+      logPoints(m,-amount,'未做到：'+h.name,h.icon);
+      changed=true;
+    });
+    settled[yesterday]=true;
+    m._punishSettled=settled;
+  });
+  if(changed)saveData();
+}
+// 计算相对今天偏移 offset 天的日期字符串（offset=-1 为昨天）
+function dateStrOffset(offset){
+  const d=new Date();
+  d.setDate(d.getDate()+offset);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// ======================== Utility ========================
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function getMember(){return state.members.find(m=>m.id===state.currentMemberId)}
+function uid(){return 'x'+Date.now()+Math.random().toString(36).slice(2,7)}
+function dayOfWeek(){return new Date().getDay()||7}
+function yesterdayDow(){const d=new Date();d.setDate(d.getDate()-1);return d.getDay()||7}
+// 头像渲染：有自定义图片则显示图片，否则显示 emoji
+function avatarHtml(m,sizeClass){
+  if(m.avatarImg){
+    return `<img src="${m.avatarImg}" alt="头像" style="width:100%;height:100%;object-fit:cover;display:block">`;
+  }
+  return m.avatar||'👤';
+}
+function hasAvatarImg(m){return !!(m&&m.avatarImg)}
+function speak(text){if('speechSynthesis'in window){const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';
+  u.rate=.9;speechSynthesis.speak(u)}}
+function nowStr(){const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+    +' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function logPoints(m,delta,reason,icon){
+  if(!m.pointLog)m.pointLog=[];
+  m.pointLog.unshift({id:uid(),delta:delta,reason:reason,icon:icon||'⭐',
+    time:nowStr(),balance:m.points});
+  if(m.pointLog.length>200)m.pointLog=m.pointLog.slice(0,200);
+}
+function showToast(msg,icon){
+  const t=document.getElementById('toast');
+  t.innerHTML=(icon?'<span class="t-ic">'+icon+'</span>':'')+msg;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);
+}
+function celebrate(){
+  const c=document.getElementById('celebrate');c.innerHTML='';
+  const star=document.createElement('div');star.className='center-star';star.textContent='⭐';
+  c.appendChild(star);
+  for(let i=0;i<12;i++){const e=document.createElement('div');e.className='emoji';
+    e.textContent=['🎉','🎊','⭐','✨','🎈','🌟'][i%6];
+    e.style.left=Math.random()*100+'%';e.style.top=Math.random()*60+20+'%';
+    e.style.animationDelay=(i*.08)+'s';c.appendChild(e)}
+  c.classList.add('show');setTimeout(()=>c.classList.remove('show'),1500);
+}
+
+// ======================== Rendering ========================
+function render(){
+  renderHeader();
+  renderContent();
+  renderTabs();
+  applyMode();
+}
+function applyMode(){
+  const m=getMember();
+  const mode=m?m.mode:'simple';
+  const app=document.getElementById('app');
+  document.body.setAttribute('data-mode',mode);
+  app.setAttribute('data-mode',mode);
+  // 页面主色跟随成员专属颜色（弟弟=蓝、姐姐=粉），而非模式默认色
+  if(m&&m.color){
+    const accent=m.color;
+    const lt=mixColor(accent,'#FFFFFF',0.86);
+    const dk=mixColor(accent,'#000000',0.18);
+    const shadow='0 2px 12px '+hexToRgba(accent,0.15);
+    document.body.style.setProperty('--accent',accent);
+    document.body.style.setProperty('--accent-lt',lt);
+    document.body.style.setProperty('--accent-dk',dk);
+    document.body.style.setProperty('--shadow',shadow);
+    app.style.setProperty('--accent',accent);
+    app.style.setProperty('--accent-lt',lt);
+    app.style.setProperty('--accent-dk',dk);
+    app.style.setProperty('--shadow',shadow);
+  }else{
+    document.body.style.removeProperty('--accent');
+    document.body.style.removeProperty('--accent-lt');
+    document.body.style.removeProperty('--accent-dk');
+    document.body.style.removeProperty('--shadow');
+    app.style.removeProperty('--accent');
+    app.style.removeProperty('--accent-lt');
+    app.style.removeProperty('--accent-dk');
+    app.style.removeProperty('--shadow');
+  }
+}
+// 混合两种 hex 颜色：ratio 为 mix 色占比（0~1）
+function mixColor(hex,mixHex,ratio){
+  const h=hex.replace('#',''),mh=mixHex.replace('#','');
+  const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  const mr=parseInt(mh.substr(0,2),16),mg=parseInt(mh.substr(2,2),16),mb=parseInt(mh.substr(4,2),16);
+  const R=Math.round(r*(1-ratio)+mr*ratio),G=Math.round(g*(1-ratio)+mg*ratio),B=Math.round(b*(1-ratio)+mb*ratio);
+  return '#'+[R,G,B].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+// hex 颜色转 rgba 字符串
+function hexToRgba(hex,a){
+  const h=hex.replace('#','');
+  const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function renderHeader(){
+  const title=document.getElementById('pageTitle');
+  const actions=document.getElementById('headerActions');
+  const header=document.querySelector('.header');
+  const m=getMember();
+  if(state.currentTab==='admin'||state.mineView==='admin'){
+    header.style.display='';title.style.display='';
+    title.textContent='管理设置';
+    actions.innerHTML='<button class="back-btn" onclick="closeAdmin()">‹ 返回</button>';
+  }else if(state.currentTab==='mine'&&state.mineView!=='main'){
+    const names={rewards:'奖励兑换',badges:'我的徽章',history:'积分记录'};
+    header.style.display='';title.style.display='';
+    title.textContent=names[state.mineView]||'我的';
+    actions.innerHTML='<button class="back-btn" onclick="goMineMain()">‹ 返回</button>';
+  }else{
+    // 主 tab 页：隐藏整个 header，避免标题与底部 tab 名重复
+    header.style.display='none';
+  }
+}
+function renderTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    const on=t.dataset.tab===state.currentTab;
+    t.classList.toggle('active',on);
+  });
+}
+function renderContent(){
+  const el=document.getElementById('mainContent');
+  if(state.currentTab==='mine'&&state.mineView==='admin'){renderAdmin(el);return}
+  const m=getMember();if(!m){el.innerHTML='<div class="empty"><div class="em-ic">👤</div>请先添加成员</div>';return}
+  if(state.currentTab==='habits')renderHabits(el,m);
+  else if(state.currentTab==='mine'){
+    if(state.mineView==='rewards')renderRewards(el,m);
+    else if(state.mineView==='badges')renderBadges(el,m);
+    else if(state.mineView==='history')renderHistory(el,m);
+    else renderMine(el,m);
+  }
+}
+
+// ---- Habits Tab (今日习惯) ----
+function renderHabits(el,m){
+  const today=todayStr();const dow=dayOfWeek();
+  let activeHabits=m.habits.filter(h=>h.active&&isHabitToday(h,dow));
+  let doneCount=0;
+  activeHabits.forEach(h=>{if(m.checkins[today]&&m.checkins[today][h.id])doneCount++});
+  const pct=activeHabits.length?Math.round(doneCount/activeHabits.length*100):0;
+  const streak=calcStreak(m);
+  const r=28,c=2*Math.PI*r,dash=pct/100*c;
+  let html=`<div class="progress-section">
+    <div class="user-chip" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+      <div style="width:44px;height:44px;border-radius:50%;background:${m.color}22;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden">${avatarHtml(m)}</div>
+      <div style="font-size:12px;font-weight:600;color:${m.color}">${m.name}</div>
+    </div>
+    <div class="ring"><svg width="64" height="64"><circle class="bg-c" cx="32" cy="32" r="${r}"/>
+      <circle class="fg-c" cx="32" cy="32" r="${r}" stroke-dasharray="${dash} ${c}"/></svg>
+      <div class="pct">${pct}%</div></div>
+    <div class="progress-info"><div class="label">今日完成 ${doneCount}/${activeHabits.length}</div>
+      <div class="streak"><span class="fire">🔥</span> 连续 ${streak} 天 · 积分 ${m.points}</div></div>
+  </div>`;
+  html+='<div class="section-title">今日任务</div>';
+  if(activeHabits.length===0){
+    html+='<div class="empty"><div class="em-ic">📋</div>暂无习惯，请家长在「我的 - 管理设置」中添加</div>';
+  }else{
+    activeHabits.forEach(h=>{
+      const done=m.checkins[today]&&m.checkins[today][h.id];
+      const locked=isLockedHabit(m,h);
+      let goalHtml='';
+      if(h.goalDays){
+        const cnt=countHabitDays(m,h);
+        const pct=Math.min(100,Math.round(cnt/h.goalDays*100));
+        const finished=cnt>=h.goalDays;
+        goalHtml=`<div class="habit-goal">${finished?'🎉 已完成目标！':'第 '+cnt+' / '+h.goalDays+' 天'}
+          <span class="g-bar"><span class="g-fill" style="width:${pct}%"></span></span></div>`;
+      }
+      let lockHtml='';
+      if(locked){
+        const pre=findHabit(m,h.prereq);
+        lockHtml=`<div class="habit-lock">🔒 先完成「${pre?pre.name:'前置任务'}」</div>`;
+      }
+      const isPunish=h.points<0;
+      const ptsHtml=isPunish
+        ? `<span class="pts punish">${h.points}分 <span class="punish-tip">没做到才扣</span></span>`
+        : `<span class="pts">+${h.points}分</span>`;
+      html+=`<div class="habit-item${done?' done':''}${locked?' locked':''}${isPunish?' punish-item':''}" onclick="toggleCheckin('${h.id}')">
+        <div class="habit-icon">${h.icon}</div>
+        <div class="habit-body"><div class="habit-name">${h.name}</div>
+          <div class="habit-meta">${ptsHtml}${isPunish?'<span class="pts-punish-lbl">⚠️ 没做到要扣分</span>':''}</div>${goalHtml}${lockHtml}</div>
+        <div class="habit-check"><span class="ck">${locked?'🔒':(done?'✓':'')}</span></div>
+      </div>`;
+    });
+  }
+  el.innerHTML=html;
+}
+
+// 判断某习惯今日是否被前置任务锁定（前置未完成）
+function isLockedHabit(m,h){
+  if(!h.prereq)return false;
+  const pre=findHabit(m,h.prereq);
+  if(!pre)return false;
+  const today=todayStr();
+  return !(m.checkins[today]&&m.checkins[today][pre.id]);
+}
+function findHabit(m,id){
+  return (m&&m.habits)?m.habits.find(x=>x.id===id):null;
+}
+
+// ---- Mine Tab (我的) ----
+function renderMine(el,m){
+  const streak=calcStreak(m);
+  let html=`<div class="mine-profile">
+    <div class="mine-avatar" style="background:${m.color}22">${avatarHtml(m)}</div>
+    <div class="mine-info"><div class="mine-name">${m.name}</div>
+      <div class="mine-meta">${modeLabel(m.mode)}</div></div>
+    <div class="mine-points">${m.points}<span class="lbl">积分</span></div>
+    <button class="switch-user-btn" onclick="openMemberSwitcher()">切换用户</button>
+  </div>`;
+  html+=`<div class="stat-row">
+    <div class="stat-card"><div class="num">${m.points}</div><div class="lbl">总积分</div></div>
+    <div class="stat-card"><div class="num">${streak}</div><div class="lbl">连续天数</div></div>
+    <div class="stat-card"><div class="num">${m.badges.length}</div><div class="lbl">徽章</div></div>
+  </div>`;
+  // menu
+  html+='<div class="menu-list">';
+  const pendingCount=(m.pendingRewards||[]).length;
+  html+=`<div class="menu-item" onclick="goMineView('rewards')">
+    <div class="m-ic">🎁</div><div class="m-body"><div class="m-name">奖励兑换</div>
+    <div class="m-desc">${pendingCount>0?'有 '+pendingCount+' 个待审批':'用积分换奖励'}</div></div>
+    <div class="m-arrow">›</div></div>`;
+  html+=`<div class="menu-item" onclick="goMineView('badges')">
+    <div class="m-ic">🏅</div><div class="m-body"><div class="m-name">我的徽章</div>
+    <div class="m-desc">已获得 ${m.badges.length} 枚</div></div>
+    <div class="m-arrow">›</div></div>`;
+  html+=`<div class="menu-item" onclick="goMineView('history')">
+    <div class="m-ic">📝</div><div class="m-body"><div class="m-name">积分记录</div>
+    <div class="m-desc">查看每次积分变动</div></div>
+    <div class="m-arrow">›</div></div>`;
+  html+=`<div class="menu-item" onclick="openAdmin()">
+    <div class="m-ic">⚙️</div><div class="m-body"><div class="m-name">管理设置</div>
+    <div class="m-desc">习惯管理 · 奖励审批 · 成员管理</div></div>
+    <div class="m-arrow">›</div></div>`;
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ---- Rewards view ----
+function renderRewards(el,m){
+  let html='<div class="section-title">奖励兑换</div>';
+  html+=`<div class="stat-row"><div class="stat-card"><div class="num">${m.points}</div><div class="lbl">可用积分</div></div></div>`;
+  const templates=state.rewardTemplates||[];
+  if(templates.length===0){
+    html+='<div class="empty"><div class="em-ic">🎁</div>暂无奖励模板</div>';
+  }else{
+    html+='<div class="reward-grid">';
+    templates.forEach(r=>{
+      const can=m.points>=r.points;
+      html+=`<div class="reward-card${can?'':' disabled'}" onclick="${can?`requestReward('${r.id}')`:''}">
+        <div class="r-ic">${r.icon}</div><div class="r-nm">${r.name}</div>
+        <div class="r-pts">${r.points}分</div></div>`;
+    });
+    html+='</div>';
+  }
+  if(m.pendingRewards&&m.pendingRewards.length>0){
+    html+='<div class="section-title" style="margin-top:20px">待审批</div>';
+    m.pendingRewards.forEach(pr=>{
+      const r=templates.find(t=>t.id===pr.rewardId);
+      html+=`<div class="approval-item"><div class="a-ic">${r?r.icon:'🎁'}</div>
+        <div class="a-body"><div class="a-nm">${r?r.name:'未知'}</div>
+        <div class="a-meta">申请于 ${pr.date} · ${r?r.points+'分':''}</div></div></div>`;
+    });
+  }
+  el.innerHTML=html;
+}
+
+// ---- Badges view ----
+function renderBadges(el,m){
+  let html='<div class="section-title">成就徽章</div>';
+  const defs=state.badgeDefs||[];
+  html+='<div class="badge-grid">';
+  defs.forEach(b=>{
+    const earned=m.badges.includes(b.id);
+    html+=`<div class="badge-card${earned?'':' locked'}">
+      <div class="b-ic">${b.icon}</div><div class="b-nm">${b.name}</div>
+      <div class="b-desc">${b.desc}</div></div>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ---- History view ----
+function renderHistory(el,m){
+  let html='<div class="section-title">积分记录</div>';
+  html+=`<div class="stat-row">
+    <div class="stat-card"><div class="num">${m.points}</div><div class="lbl">当前积分</div></div>
+    <div class="stat-card"><div class="num">${(m.pointLog||[]).filter(l=>l.delta>0).reduce((s,l)=>s+l.delta,0)}</div><div class="lbl">累计获得</div></div>
+    <div class="stat-card"><div class="num">${(m.pointLog||[]).filter(l=>l.delta<0).reduce((s,l)=>s+l.delta,0)}</div><div class="lbl">累计消耗</div></div>
+  </div>`;
+  const log=m.pointLog||[];
+  if(log.length===0){
+    html+='<div class="empty"><div class="em-ic">📝</div>暂无积分记录</div>';
+  }else{
+    log.forEach(l=>{
+      const sign=l.delta>0?'+':'';
+      const cls=l.delta>0?'plus':'minus';
+      html+=`<div class="log-item">
+        <div class="l-ic">${l.icon}</div>
+        <div class="l-body"><div class="l-title">${l.reason}</div>
+          <div class="l-time">${l.time} · 余额 ${l.balance}</div></div>
+        <div class="l-pts ${cls}">${sign}${l.delta}</div>
+      </div>`;
+    });
+  }
+  el.innerHTML=html;
+}
+
+// ---- Admin view ----
+function renderAdmin(el){
+  el.innerHTML='';
+  let html='<div class="section-title">完成度对比（今日）</div>';
+  const today=todayStr();const dow=dayOfWeek();
+  html+='<div class="compare-chart">';
+  state.members.forEach(m=>{
+    const habits=m.habits.filter(h=>h.active&&isHabitToday(h,dow));
+    let done=0;habits.forEach(h=>{if(m.checkins[today]&&m.checkins[today][h.id])done++});
+    const pct=habits.length?Math.round(done/habits.length*100):0;
+    html+=`<div class="compare-col"><div class="pct">${pct}%</div>
+      <div class="compare-bar"><div class="fill" style="height:${pct}%;background:${m.color}"></div></div>
+      <div class="nm">${hasAvatarImg(m)?'🖼️':m.avatar} ${m.name}</div></div>`;
+  });
+  html+='</div>';
+  const allPending=[];
+  state.members.forEach(m=>{
+    (m.pendingRewards||[]).forEach(pr=>{
+      const r=(state.rewardTemplates||[]).find(t=>t.id===pr.rewardId);
+      allPending.push({memberId:m.id,memberName:m.name,memberAvatar:m.avatar,memberAvatarImg:m.avatarImg,...pr,reward:r});
+    });
+  });
+  if(allPending.length>0){
+    html+='<div class="section-title">奖励审批</div>';
+    allPending.forEach(pr=>{
+      const av=pr.memberAvatarImg?`<img src="${pr.memberAvatarImg}" style="width:100%;height:100%;object-fit:cover;display:block">`:(pr.memberAvatar||'👤');
+      html+=`<div class="approval-item"><div class="a-ic" style="overflow:hidden">${av}</div>
+        <div class="a-body"><div class="a-nm">${pr.memberName} 想要 ${pr.reward?pr.reward.name:''}</div>
+        <div class="a-meta">申请于 ${pr.date} · ${pr.reward?pr.reward.points+'分':''}</div></div>
+        <div class="a-btns"><button class="a-btn approve" onclick="approveReward('${pr.memberId}','${pr.id}')">✓ 通过</button>
+        <button class="a-btn reject" onclick="rejectReward('${pr.memberId}','${pr.id}')">✗ 驳回</button></div></div>`;
+    });
+  }
+  html+='<div class="section-title" style="margin-top:16px">成员管理'
+    +'<span class="add-link" onclick="openMemberEditor()">＋ 添加成员</span></div>';
+  state.members.forEach(m=>{
+    html+=`<div class="approval-item"><div class="a-ic" style="font-size:24px;width:40px;height:40px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center">${avatarHtml(m)}</div>
+      <div class="a-body"><div class="a-nm">${m.name}</div>
+      <div class="a-meta">${modeLabel(m.mode)} · 积分 ${m.points} · 习惯 ${m.habits.length}</div></div>
+      <div class="a-btns"><button class="a-btn approve" onclick="openMemberEditor('${m.id}')">编辑</button></div></div>`;
+  });
+
+  // 任务管理：分成员列出习惯，可编辑/删除/新增
+  html+='<div class="section-title" style="margin-top:16px">任务管理（习惯）</div>';
+  html+='<div class="menu-list" style="margin-bottom:12px">';
+  state.members.forEach(m=>{
+    const habitList=m.habits.map(h=>{
+      const freqTxt=h.freq==='once'?'一次性':((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
+      const preTxt=h.prereq?(findHabit(m,h.prereq)?' · 先完成「'+findHabit(m,h.prereq).name+'」':''):'';
+      return `<div class="menu-item" style="padding:12px">
+        <div class="m-ic" style="width:34px;height:34px;font-size:18px">${h.icon}</div>
+        <div class="m-body"><div class="m-name">${h.name}</div>
+          <div class="m-desc">${h.points<0?h.points:'+'+h.points}分 · ${freqTxt}${h.goalDays?' · 目标'+h.goalDays+'天':''}${preTxt}${h.points<0?' · ⚠️ 惩罚':''}</div></div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="a-btn approve" onclick="openHabitEditor('${m.id}','${h.id}')">编辑</button>
+          <button class="a-btn reject" onclick="deleteHabit('${m.id}','${h.id}')">删除</button>
+        </div></div>`;
+    }).join('');
+    html+=`<div style="padding:10px 14px;background:var(--accent-lt);color:var(--accent);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;font-size:13px">${avatarHtml(m)}</span>${m.name}</span>
+      <span class="add-link" onclick="openHabitEditor('${m.id}')">＋ 添加</span></div>`;
+    html+=habitList;
+  });
+  html+='</div>';
+
+  // 任务模板库（全局任务模板，不下发，供手动使用）
+  html+='<div class="section-title" style="margin-top:16px">任务模板库'
+    +'<span class="add-link" onclick="openTemplateEditor()">＋ 新增模板</span></div>';
+  const tpls=state.habitTemplates||[];
+  if(tpls.length===0){
+    html+='<div class="empty"><div class="em-ic">📋</div>暂无任务模板</div>';
+  }else{
+    html+='<div class="menu-list" style="margin-bottom:12px">';
+    tpls.forEach(t=>{
+      const freqTxt=t.frequency==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
+      html+=`<div class="menu-item" style="padding:12px">
+        <div class="m-ic" style="width:34px;height:34px;font-size:18px">${t.icon}</div>
+        <div class="m-body"><div class="m-name">${t.name}</div>
+          <div class="m-desc">${t.points<0?t.points:'+'+t.points}分 · ${freqTxt}${t.points<0?' · ⚠️ 惩罚':''}</div></div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="a-btn approve" onclick="openTemplateAssign('${t.id}')">下发</button>
+          <button class="a-btn approve" onclick="openTemplateEditor('${t.id}')">编辑</button>
+          <button class="a-btn reject" onclick="deleteTemplate('${t.id}')">删除</button>
+        </div></div>`;
+    });
+    html+='</div>';
+  }
+
+  // 数据与存储（浏览器兼容性 & 本地存储状态）
+  html+='<div class="section-title" style="margin-top:16px">数据与存储</div>';
+  const dinfo=detectStorage();
+  html+='<div class="approval-item"><div class="a-ic" style="font-size:24px">💾</div>'
+    +'<div class="a-body"><div class="a-nm">'+(dinfo.ok?'本地存储正常':'本地存储不可用')+'</div>'
+    +'<div class="a-meta">'
+    +(dinfo.ok
+      ?'数据保存在本机浏览器 localStorage，不联网、不上传第三方'
+      :(dinfo.note||'浏览器禁用了本地存储'))
+    +(dinfo.ok&&dinfo.bytes!==undefined?' · 已占用约 '+fmtBytes(dinfo.bytes):'')
+    +'</div></div>'
+    +'<div class="a-btns"><button class="a-btn approve" onclick="showStorageDetail()">详情</button></div></div>';
+  // 数据备份与恢复
+  html+='<div class="approval-item"><div class="a-ic" style="font-size:24px">📦</div>'
+    +'<div class="a-body"><div class="a-nm">数据备份与恢复</div>'
+    +'<div class="a-meta">导出备份文件到电脑，浏览器数据丢失时可导入恢复</div></div>'
+    +'<div class="a-btns"><button class="a-btn approve" onclick="exportData()">导出备份</button>'
+    +'<button class="a-btn approve" onclick="document.getElementById(\'importFile\').click()">导入恢复</button></div></div>'
+    +'<input type="file" id="importFile" accept=".json,application/json" style="display:none">';
+
+  // 安全设置
+  html+='<div class="section-title" style="margin-top:16px">安全设置</div>';
+  html+='<div class="approval-item"><div class="a-ic" style="font-size:24px">🔒</div>'
+    +'<div class="a-body"><div class="a-nm">管理口令</div>'
+    +'<div class="a-meta">当前口令已加密保存，输入默认口令 1234 可重置</div></div>'
+    +'<div class="a-btns"><button class="a-btn approve" onclick="openPwdChange()">修改口令</button></div></div>';
+
+  el.innerHTML=html;
+}
+
+// ======================== Logic ========================
+function isHabitToday(h,dow){
+  if(h.freq==='once')return true;
+  if(h.freq==='daily')return h.days?h.days.includes(dow):true;
+  return true;
+}
+function countHabitDays(m,h){
+  let cnt=0;
+  for(const ds in m.checkins){
+    if(m.checkins[ds][h.id])cnt++;
+  }
+  return cnt;
+}
+function toggleCheckin(habitId){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  if(!m.checkins[today])m.checkins[today]={};
+  const wasDone=m.checkins[today][habitId];
+  if(wasDone){
+    const h=m.habits.find(x=>x.id===habitId);
+    // 级联取消：若该任务是其他今日已完成任务的前置，弹确认后一并取消，保持数据一致
+    const cascade=collectCascadeDownstream(m,h,today);
+    if(cascade.length>0){
+      const names=cascade.map(x=>x.name).join('、');
+      openModal(`<h3>取消打卡</h3>
+        <button class="close-btn" onclick="closeModal()">×</button>
+        <p style="font-size:14px;color:var(--text-1);margin-bottom:8px">将取消「${h.name}」的打卡。</p>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:4px">以下任务以它为前置且今日已完成，将一并取消：</p>
+        <p style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:14px">${cascade.map(x=>x.icon+' '+x.name).join('、')}</p>
+        <button class="btn-primary" onclick="doCascadeCancel('${h.id}')">确认取消（共退回 ${h.points + cascade.reduce((s, x) => s + x.points, 0)} 分）</button>
+        <button class="btn-danger" onclick="closeModal()">不取消了</button>
+      `);
+      return;
+    }
+    if(h.points<0){
+      // 惩罚任务取消：撤销“做到了”，无需积分变动（打卡时本就没扣分）
+      delete m.checkins[today][habitId];
+      logPoints(m,0,'取消做到：'+h.name,h.icon);
+      showToast('已取消','↩️');
+      saveData();render();
+      return;
+    }
+    m.points-=h.points;
+    logPoints(m,-h.points,'取消打卡：'+h.name,h.icon);
+    delete m.checkins[today][habitId];
+    showToast('已取消','↩️');
+  }else{
+    const h=m.habits.find(x=>x.id===habitId);
+    if(isLockedHabit(m,h)){
+      const pre=findHabit(m,h.prereq);
+      showToast('先完成「'+(pre?pre.name:'前置任务')+'」','🔒');
+      if(m.mode==='child')speak('先完成'+(pre?pre.name:'前置任务')+'，再来完成'+h.name);
+      return;
+    }
+    // 惩罚任务：打卡=做到了，不扣分；取消不加回
+    if(h.points<0){
+      m.checkins[today][habitId]=true;
+      logPoints(m,0,'做到：'+h.name+'（未扣分）',h.icon);
+      showToast('做到了！没扣分','✅');
+      if(m.mode==='child')speak('太棒了，你做到了'+h.name);
+      saveData();render();
+      return;
+    }
+    m.points+=h.points;
+    logPoints(m,h.points,'完成习惯：'+h.name,h.icon);
+    m.checkins[today][habitId]=true;
+    const mode=m.mode;
+    const msgs=['太棒了！','做得真好！','继续保持！','你真厉害！','又完成一个！'];
+    const msg=msgs[Math.floor(Math.random()*msgs.length)];
+    const icon=h.icon;
+    showToast(msg,icon);
+    if(mode==='child'){speak(msg+'你完成了'+h.name)}
+    celebrate();
+    if(h.goalDays&&countHabitDays(m,h)>=h.goalDays){
+      showToast('🎉 达成目标：'+h.name+' '+h.goalDays+'天！','🏆');
+      if(mode==='child')speak('太棒了，你完成了'+h.name+' '+h.goalDays+'天的挑战');
+      celebrate();
+    }
+    checkBadges(m);
+  }
+  saveData();render();
+}
+// 收集今日已完成、且直接/间接以指定任务为前置的任务（级联取消范围）
+function collectCascadeDownstream(m,h,today){
+  const ci=m.checkins[today]||{};
+  const result=[];
+  const direct=m.habits.filter(x=>x.prereq===h.id&&ci[x.id]);
+  direct.forEach(x=>{
+    if(!result.find(r=>r.id===x.id)){
+      result.push(x);
+      collectCascadeDownstream(m,x,today).forEach(y=>{
+        if(!result.find(r=>r.id===y.id))result.push(y);
+      });
+    }
+  });
+  return result;
+}
+// 确认后执行级联取消（沿依赖链逐一取消并退回积分）
+function doCascadeCancel(habitId){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  const h=m.habits.find(x=>x.id===habitId);if(!h)return;
+  const cascade=collectCascadeDownstream(m,h,today);
+  cascade.forEach(x=>{
+    m.points-=x.points;
+    logPoints(m,-x.points,'级联取消：'+x.name,x.icon);
+    delete m.checkins[today][x.id];
+  });
+  m.points-=h.points;
+  logPoints(m,-h.points,'取消打卡：'+h.name,h.icon);
+  delete m.checkins[today][habitId];
+  saveData();closeModal();render();
+  showToast('已取消（含前置链下游 '+(cascade.length+1)+' 项）','↩️');
+}
+function calcStreak(m){
+  let streak=0;const d=new Date();
+  while(true){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const ci=m.checkins[ds];
+    if(ci&&Object.keys(ci).length>0)streak++;
+    else break;
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+function checkBadges(m){
+  const streak=calcStreak(m);
+  const defs=state.badgeDefs||[];
+  defs.forEach(b=>{
+    if(streak>=b.days&&!m.badges.includes(b.id)){
+      m.badges.push(b.id);
+      showToast('解锁徽章：'+b.name,b.icon);
+      if(m.mode==='child')speak('太棒了，你获得了'+b.name+'徽章');
+      celebrate();
+    }
+  });
+}
+function requestReward(rewardId){
+  const m=getMember();if(!m)return;
+  const r=(state.rewardTemplates||[]).find(t=>t.id===rewardId);if(!r)return;
+  if(m.points<r.points){showToast('积分不足','😢');return}
+  if(!m.pendingRewards)m.pendingRewards=[];
+  m.pendingRewards.push({id:uid(),rewardId,date:todayStr()});
+  m.points-=r.points;
+  logPoints(m,-r.points,'兑换奖励：'+r.name,r.icon);
+  showToast('已申请，等待审批','📨');
+  if(m.mode==='child')speak('你申请了'+r.name+'，等爸爸妈妈同意哦');
+  saveData();render();
+}
+function approveReward(memberId,prId){
+  const m=state.members.find(x=>x.id===memberId);if(!m)return;
+  m.pendingRewards=m.pendingRewards.filter(p=>p.id!==prId);
+  if(!m.rewards)m.rewards=[];
+  m.rewards.push({id:prId,memberId,date:todayStr()});
+  showToast('已发放','✅');
+  saveData();render();
+}
+function rejectReward(memberId,prId){
+  const m=state.members.find(x=>x.id===memberId);if(!m)return;
+  const pr=m.pendingRewards.find(p=>p.id===prId);
+  const r=pr?(state.rewardTemplates||[]).find(t=>t.id===pr.rewardId):null;
+  m.pendingRewards=m.pendingRewards.filter(p=>p.id!==prId);
+  if(r){m.points+=r.points;logPoints(m,r.points,'奖励驳回退回：'+r.name,r.icon)}
+  showToast('已驳回，积分退回','↩️');
+  saveData();render();
+}
+function modeLabel(mode){return{child:'儿童模式',teen:'少年模式',simple:'简洁模式'}[mode]||mode}
+
+// ======================== Tab & View Switching ========================
+function switchTab(tab){
+  if(state.currentTab===tab)return;
+  state.currentTab=tab;
+  if(tab==='mine')state.mineView='main';
+  saveData();render();
+}
+function switchMember(id){
+  state.currentMemberId=id;state.mineView='main';
+  saveData();render();
+}
+function openMemberSwitcher(){
+  const avatars=['👧','👦','👶','🧒','👩','👨','🧑','👴','👵','🐱','🐶'];
+  let cards=state.members.map(mm=>{
+    const active=mm.id===state.currentMemberId;
+    return `<div class="member-card${active?' active':''}" onclick="switchMember('${mm.id}');closeModal()">
+      <div class="mc-avatar" style="background:${mm.color}22">${avatarHtml(mm)}</div>
+      <div class="mc-name">${mm.name}</div>
+      <div class="mc-pts">${mm.points} 积分</div></div>`;
+  }).join('');
+  openModal(`<h3>切换用户</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div class="member-grid" style="flex-wrap:wrap;justify-content:center">${cards}</div>`);
+}
+function goMineMain(){
+  state.mineView='main';saveData();render();
+}
+function goMineView(v){
+  state.mineView=v;saveData();render();
+}
+
+// ======================== Admin Access ========================
+function openAdmin(){
+  if(!state.adminUnlocked){
+    openModal(`<h3>管理入口</h3>
+      <button class="close-btn" onclick="closeModal()">×</button>
+      <div class="form-group"><label>请输入管理口令</label>
+        <input type="password" id="adminPwd" placeholder="默认口令：1234" onkeyup="if(event.key==='Enter')checkAdminPwd()">
+      </div>
+      <button class="btn-primary" onclick="checkAdminPwd()">进入</button>`);
+    return;
+  }
+  state.currentTab='mine';state.mineView='admin';saveData();render();
+}
+function closeAdmin(){
+  state.mineView='main';saveData();render();
+}
+function checkAdminPwd(){
+  const v=document.getElementById('adminPwd').value;
+  if(v===state.adminPwd){unlockAdmin();return}
+  if(v==='1234'){openModal(adminPwdResetHtml());return}
+  showToast('口令错误','❌');
+}
+function unlockAdmin(){
+  state.adminUnlocked=true;
+  state.currentTab='mine';state.mineView='admin';
+  saveData();closeModal();render();
+}
+function adminPwdResetHtml(){
+  return `<h3>重置管理口令</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">当前口令已修改，请输入 1234 作为默认口令。您需要设置一个新口令后才能进入管理。</p>
+    <div class="form-group"><label>新口令</label>
+      <input type="password" id="pwdNew" placeholder="请输入新口令"></div>
+    <div class="form-group"><label>确认新口令</label>
+      <input type="password" id="pwdNew2" placeholder="再次输入新口令"></div>
+    <button class="btn-primary" onclick="resetAdminPwd()">设置新口令并进入</button>`;
+}
+function resetAdminPwd(){
+  const a=document.getElementById('pwdNew').value.trim();
+  const b=document.getElementById('pwdNew2').value.trim();
+  if(!a){showToast('请输入新口令','❌');return}
+  if(a!==b){showToast('两次输入不一致','❌');return}
+  state.adminPwd=a;saveData();unlockAdmin();
+  showToast('口令已更新','🔒');
+}
+
+// ======================== Member Editor ========================
+const COLOR_PRESETS=['#4A90D9','#5B8DEF','#7C6FF0','#9B59B6','#E85585','#FF6B9D','#FF8C42','#FFB03A','#34C77B','#2BB3A3','#5AB0A8','#8E7CC3'];
+function colorPresetsHtml(current){
+  return COLOR_PRESETS.map(c=>`<div class="cp${c.toLowerCase()===current.toLowerCase()?' sel':''}" data-color="${c}" style="background:${c}" onclick="pickPreset('${c}')"></div>`).join('');
+}
+function pickPreset(color){
+  const input=document.getElementById('mColor');
+  if(input){input.value=color;}
+  document.querySelectorAll('#colorPresets .cp').forEach(el=>{
+    el.classList.toggle('sel',el.dataset.color.toLowerCase()===color.toLowerCase());
+  });
+}
+function openMemberEditor(id){
+  const m=id?state.members.find(x=>x.id===id):null;
+  const avatars=['👧','👦','👶','🧒','👩','👨','🧑','👴','👵','🐱','🐶'];
+  let avatarOpts=avatars.map(a=>`<option value="${a}" ${m&&m.avatar===a?'selected':''}>${a} ${a}</option>`).join('');
+  openModal(`<h3>${m?'编辑成员':'添加成员'}</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div class="form-group"><label>名称</label>
+      <input type="text" id="mName" value="${m?m.name:''}" placeholder="如：姐姐、弟弟、爸爸"></div>
+    <div class="form-row">
+      <div class="form-group"><label>头像</label><select id="mAvatar" onchange="syncAvatarPreview()">${avatarOpts}</select>
+        <div class="avatar-upload" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div id="avatarPreview" style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--accent-lt);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${m?(m.avatarImg?avatarHtml(m):(m.avatar||'👤')):'👤'}</div>
+          <input type="hidden" id="mAvatarImg" value="${m&&m.avatarImg?m.avatarImg:''}">
+          <button class="a-btn approve" style="margin:0" onclick="document.getElementById('mAvatarFile').click()">📷 上传图片</button>
+          <button class="a-btn reject" style="margin:0;${m&&m.avatarImg?'':'display:none'}" id="avatarClearBtn" onclick="clearAvatarImg()">清除</button>
+        </div>
+        <input type="file" id="mAvatarFile" accept="image/*" style="display:none" onchange="onAvatarFile(this)">
+        <div style="font-size:11px;color:var(--text-2);margin-top:4px">支持上传本地图片，自动压缩为头像；不传则用 emoji</div></div>
+      <div class="form-group"><label>界面模式</label><select id="mMode">
+        <option value="child" ${m&&m.mode==='child'?'selected':''}>儿童模式（大图标+语音）</option>
+        <option value="teen" ${m&&m.mode==='teen'?'selected':''}>少年模式（文字+图标）</option>
+        <option value="simple" ${(!m||m.mode==='simple')?'selected':''}>简洁模式（纯文字）</option>
+      </select></div>
+    </div>
+    <div class="form-group"><label>主题色</label>
+      <div class="color-presets" id="colorPresets">${colorPresetsHtml(m&&m.color?m.color:'#4A90D9')}</div>
+      <div class="color-custom">
+        <input type="color" id="mColor" value="${m?m.color:'#4A90D9'}" onchange="pickPreset(this.value)">
+        <span class="cc-lbl">自定义颜色</span>
+      </div></div>
+    <button class="btn-primary" onclick="saveMember('${id||''}')">保存</button>
+    ${m?`<button class="btn-danger" onclick="deleteMember('${m.id}')">删除成员</button>`:''}
+  `);
+}
+function saveMember(id){
+  const name=document.getElementById('mName').value.trim();
+  if(!name){showToast('请输入名称','❌');return}
+  const avatar=document.getElementById('mAvatar').value;
+  const mode=document.getElementById('mMode').value;
+  const color=document.getElementById('mColor').value;
+  const avatarImg=(document.getElementById('mAvatarImg')?document.getElementById('mAvatarImg').value:'')||undefined;
+  if(id){
+    const m=state.members.find(x=>x.id===id);
+    Object.assign(m,{name,avatar,mode,color,avatarImg});
+  }else{
+    const nm={id:uid(),name,avatar,avatarImg,mode,color,points:0,createdAt:todayStr(),
+      habits:[],checkins:{},rewards:[],badges:[],pendingRewards:[],pointLog:[]};
+    state.members.push(nm);state.currentMemberId=nm.id;
+    applyHabitTemplate(nm);
+  }
+  saveData();closeModal();render();
+}
+// ======================== 头像图片上传 ========================
+function onAvatarFile(input){
+  const f=input.files&&input.files[0];
+  if(!f)return;
+  if(!/^image\//.test(f.type)){showToast('请选择图片文件','❌');return}
+  if(f.size>5*1024*1024){showToast('图片不能超过 5MB','❌');return}
+  compressAvatar(f,function(dataUrl){
+    const hid=document.getElementById('mAvatarImg');if(!hid)return;
+    hid.value=dataUrl;
+    syncAvatarPreview();
+    const cb=document.getElementById('avatarClearBtn');if(cb)cb.style.display='';
+    showToast('头像已更新','📷');
+  });
+  input.value='';
+}
+function clearAvatarImg(){
+  const hid=document.getElementById('mAvatarImg');if(!hid)return;
+  hid.value='';
+  syncAvatarPreview();
+  const cb=document.getElementById('avatarClearBtn');if(cb)cb.style.display='none';
+  showToast('已清除自定义头像','🗑️');
+}
+function syncAvatarPreview(){
+  const pv=document.getElementById('avatarPreview'),sel=document.getElementById('mAvatar'),hid=document.getElementById('mAvatarImg');
+  if(!pv)return;
+  if(hid&&hid.value){
+    pv.innerHTML=`<img src="${hid.value}" style="width:100%;height:100%;object-fit:cover;display:block">`;
+  }else{
+    pv.textContent=(sel&&sel.value)||'👤';
+  }
+}
+function compressAvatar(file,cb){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=128;
+      const scale=Math.min(1,MAX/Math.max(img.width,img.height));
+      const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cb(cv.toDataURL('image/jpeg',0.8));
+    };
+    img.onerror=()=>showToast('图片读取失败','❌');
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function deleteMember(id){
+  if(state.members.length<=1){showToast('至少保留1个成员','❌');return}
+  state.members=state.members.filter(m=>m.id!==id);
+  if(state.currentMemberId===id)state.currentMemberId=state.members[0].id;
+  saveData();closeModal();render();
+}
+
+// ======================== Habit Editor ========================
+// 积分输入变化时：负分（惩罚）任务禁止设置前置，同步禁用/提示
+function syncPunishPrereq(){
+  const inp=document.getElementById('hPoints');
+  const sel=document.getElementById('hPrereq');
+  const hint=document.getElementById('prereqHint');
+  if(!inp||!sel||!hint)return;
+  const punish=parseInt(inp.value)<0;
+  sel.disabled=punish;
+  if(punish){
+    sel.value='';
+    hint.innerHTML='<span style="color:#e74c3c">惩罚任务不支持设置前置任务</span>';
+  }else{
+    hint.innerHTML='设置后，需先完成该任务当天打卡，才能完成此任务（适合：先复习→再背诵→抄生字→做题）';
+  }
+}
+function openHabitEditor(memberId,id){
+  const m=memberId?state.members.find(x=>x.id===memberId):getMember();
+  if(!m)return;
+  const h=id?m.habits.find(x=>x.id===id):null;
+  const icons=['📚','✏️','✍️','📖','🎒','🪥','👕','🧸','🤸','😴','💧','🥗','🏃','🧹','🎹','🎨','🙏','⏰','⚫','♟️'];
+  let iconOpts=icons.map(i=>`<option value="${i}" ${h&&h.icon===i?'selected':''}>${i} ${i}</option>`).join('');
+  let dayCk=[1,2,3,4,5,6,7].map(d=>{
+    const labels=['','一','二','三','四','五','六','日'];
+    const ck=h&&h.days?h.days.includes(d):true;
+    return `<label style="display:inline-block;margin:4px"><input type="checkbox" data-day="${d}" ${ck?'checked':''}> ${labels[d]}</label>`;
+  }).join('');
+  // 前置任务候选：同成员下其他习惯（编辑时排除自身；排除惩罚任务——惩罚任务不可作为前置）
+  const isPunish=h?h.points<0:document.getElementById('hPoints')&&parseInt(document.getElementById('hPoints').value)<0;
+  const preOpts=m.habits.filter(x=>x.id!==id&&x.points>=0)
+    .map(x=>`<option value="${x.id}" ${h&&h.prereq===x.id?'selected':''}>${x.icon} ${x.name}</option>`).join('');
+  openModal(`<h3>${h?'编辑习惯':'添加习惯'}<span style="font-size:12px;color:var(--text-2);margin-left:8px">${m.name}</span></h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div class="form-group"><label>习惯名称</label>
+      <input type="text" id="hName" value="${h?h.name:''}" placeholder="如：阅读20分钟"></div>
+    <div class="form-row">
+      <div class="form-group"><label>图标</label><select id="hIcon">${iconOpts}</select></div>
+      <div class="form-group"><label>积分</label>
+        <input type="number" id="hPoints" value="${h?h.points:1}" min="-20" max="10" step="1" oninput="syncPunishPrereq()">
+        <div style="font-size:11px;color:var(--text-2);margin-top:4px">填<span style="color:#e74c3c;font-weight:600">负数</span>为惩罚任务（如不吃零食 -2 分）：做到不扣分，没做到自动扣分</div></div>
+    </div>
+    <div class="form-group"><label>频率</label><select id="hFreq">
+      <option value="daily" ${(h&&h.freq==='daily')||!h?'selected':''}>每日</option>
+      <option value="once" ${h&&h.freq==='once'?'selected':''}>一次性</option>
+    </select></div>
+    <div class="form-group" id="daysGroup"><label>执行日期</label><div>${dayCk}</div></div>
+    <div class="form-group"><label>前置任务（选填）</label>
+      <select id="hPrereq" ${isPunish?'disabled':''}>
+        <option value="">无前置任务</option>
+        ${preOpts}
+      </select>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="prereqHint">${isPunish?'<span style="color:#e74c3c">惩罚任务不支持设置前置任务</span>':'设置后，需先完成该任务当天打卡，才能完成此任务（适合：先复习→再背诵→抄生字→做题）'}</div></div>
+    <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
+      <input type="number" id="hGoal" value="${h&&h.goalDays?h.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
+    <button class="btn-primary" onclick="saveHabit('${m.id}','${id||''}')">保存</button>
+    ${h?`<button class="btn-danger" onclick="deleteHabit('${m.id}','${h.id}')">删除习惯</button>`:''}
+  `);
+}
+function saveHabit(memberId,id){
+  const m=memberId?state.members.find(x=>x.id===memberId):getMember();if(!m)return;
+  const name=document.getElementById('hName').value.trim();
+  if(!name){showToast('请输入名称','❌');return}
+  const icon=document.getElementById('hIcon').value;
+  const points=parseInt(document.getElementById('hPoints').value)||0;
+  const freq=document.getElementById('hFreq').value;
+  const goalRaw=document.getElementById('hGoal').value;
+  const goalDays=goalRaw?parseInt(goalRaw)||0:0;
+  const prereq=document.getElementById('hPrereq').value||'';
+  const days=[];
+  document.querySelectorAll('[data-day]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.day))});
+  // 校验：惩罚任务（负分）不能设置前置任务
+  if(points<0&&prereq){showToast('惩罚任务不能设置前置任务','❌');return}
+  // 校验：惩罚任务（负分）不能被其他任务设为前置
+  if(points<0&&id){
+    const dependents=m.habits.filter(x=>x.prereq===id);
+    if(dependents.length>0){
+      showToast('已有任务以它为前置，不能改为惩罚任务','❌');return;
+    }
+  }
+  // 校验：前置任务不能造成循环依赖（A→B→A）；仅编辑已有习惯时需要校验（新增无循环可能）
+  if(prereq&&id){
+    let cur=prereq;
+    while(cur&&cur!==id){
+      const ph=findHabit(m,cur);
+      cur=ph?ph.prereq:'';
+    }
+    if(cur===id){showToast('前置任务不能形成循环','❌');return}
+  }
+  if(id){
+    const h=m.habits.find(x=>x.id===id);
+    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,prereq});
+  }else{
+    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,prereq,active:true});
+  }
+  saveData();closeModal();render();
+}
+function deleteHabit(memberId,id){
+  const m=memberId?state.members.find(x=>x.id===memberId):getMember();if(!m)return;
+  m.habits=m.habits.filter(h=>h.id!==id);
+  // 清理其他习惯对该习惯的前置引用
+  m.habits.forEach(h=>{if(h.prereq===id)h.prereq=''});
+  saveData();closeModal();render();
+}
+function applyHabitTemplate(m){
+  if(m.mode==='child'){
+    m.habits=[
+      {id:uid(),name:'自己刷牙',icon:'🪥',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+      {id:uid(),name:'自己穿衣',icon:'👕',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+      {id:uid(),name:'收拾玩具',icon:'🧸',points:1,freq:'daily',days:[1,2,3,4,5,6,7],active:true}
+    ];
+  }else if(m.mode==='teen'){
+    m.habits=[
+      {id:uid(),name:'完成作业',icon:'✏️',points:3,freq:'daily',days:[1,2,3,4,5],active:true},
+      {id:uid(),name:'阅读20分钟',icon:'📖',points:2,freq:'daily',days:[1,2,3,4,5,6,7],active:true},
+      {id:uid(),name:'整理书桌',icon:'🧹',points:1,freq:'daily',days:[1,2,3,4,5],active:true}
+    ];
+  }
+}
+
+// ======================== Task Template Library ========================
+function openTemplateEditor(id){
+  const t=id?state.habitTemplates.find(x=>x.id===id):null;
+  const icons=['📚','✏️','✍️','📖','🎒','🪥','👕','🧸','🤸','😴','💧','🥗','🏃','🧹','🎹','🎨','🙏','⏰','⚫','♟️'];
+  let iconOpts=icons.map(i=>`<option value="${i}" ${t&&t.icon===i?'selected':''}>${i} ${i}</option>`).join('');
+  let dayCk=[1,2,3,4,5,6,7].map(d=>{
+    const labels=['','一','二','三','四','五','六','日'];
+    const ck=t&&t.days?t.days.includes(d):true;
+    return `<label style="display:inline-block;margin:4px"><input type="checkbox" data-tday="${d}" ${ck?'checked':''}> ${labels[d]}</label>`;
+  }).join('');
+  openModal(`<h3>${t?'编辑模板':'新增模板'}</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div class="form-group"><label>任务名称</label>
+      <input type="text" id="tName" value="${t?t.name:''}" placeholder="如：每天阅读20分钟"></div>
+    <div class="form-row">
+      <div class="form-group"><label>图标</label><select id="tIcon">${iconOpts}</select></div>
+      <div class="form-group"><label>积分</label>
+        <input type="number" id="tPoints" value="${t?t.points:2}" min="-20" max="10" step="1">
+        <div style="font-size:11px;color:var(--text-2);margin-top:4px">负数为惩罚任务（如 -2），未完成自动扣分</div></div>
+    </div>
+    <div class="form-group"><label>频率</label><select id="tFreq">
+      <option value="daily" ${(!t||t.freq==='daily')?'selected':''}>每日</option>
+      <option value="once" ${t&&t.freq==='once'?'selected':''}>一次性</option>
+    </select></div>
+    <div class="form-group"><label>执行日期</label><div>${dayCk}</div></div>
+    <button class="btn-primary" onclick="saveTemplate('${t?t.id:''}')">保存</button>
+    ${t?`<button class="btn-danger" onclick="deleteTemplate('${t.id}')">删除模板</button>`:''}
+  `);
+}
+function saveTemplate(id){
+  const name=document.getElementById('tName').value.trim();
+  if(!name){showToast('请输入名称','❌');return}
+  const icon=document.getElementById('tIcon').value;
+  const points=parseInt(document.getElementById('tPoints').value)||0;
+  const freq=document.getElementById('tFreq').value;
+  const days=[];
+  document.querySelectorAll('[data-tday]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.tday))});
+  if(id){
+    const t=state.habitTemplates.find(x=>x.id===id);
+    Object.assign(t,{name,icon,points,freq,days});
+  }else{
+    state.habitTemplates.push({id:uid(),name,icon,points,freq,days});
+  }
+  saveData();closeModal();render();
+}
+function deleteTemplate(id){
+  state.habitTemplates=state.habitTemplates.filter(t=>t.id!==id);
+  saveData();closeModal();render();
+}
+function openTemplateAssign(id){
+  const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
+  const memberOpts=state.members.map(m=>`<option value="${m.id}">${m.avatar} ${m.name}</option>`).join('');
+  openModal(`<h3>下发模板任务</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">将「${t.name}」下发给成员，该成员的习惯列表将新增此任务。</p>
+    <div class="form-group"><label>选择成员</label>
+      <select id="assignMember">${memberOpts}</select></div>
+    <button class="btn-primary" onclick="assignTemplate('${id}')">下发</button>
+  `);
+}
+function assignTemplate(id){
+  const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
+  const mid=document.getElementById('assignMember').value;
+  const m=state.members.find(x=>x.id===mid);if(!m)return;
+  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:0,active:true});
+  saveData();closeModal();render();
+  showToast('已下发给 '+m.name,'📨');
+}
+
+// ======================= 安全设置（修改口令） =======================
+function openPwdChange(){
+  openModal(`<h3>修改管理口令</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div class="form-group"><label>当前口令</label>
+      <input type="password" id="oldPwd" placeholder="请输入当前口令"></div>
+    <div class="form-group"><label>新口令</label>
+      <input type="password" id="newPwd1" placeholder="请输入新口令"></div>
+    <div class="form-group"><label>确认新口令</label>
+      <input type="password" id="newPwd2" placeholder="再次输入新口令"></div>
+    <button class="btn-primary" onclick="savePwdChange()">保存新口令</button>
+  `);
+}
+function savePwdChange(){
+  const oldPwd=document.getElementById('oldPwd').value;
+  if(oldPwd!==state.adminPwd){showToast('当前口令错误','❌');return}
+  const p1=document.getElementById('newPwd1').value.trim();
+  const p2=document.getElementById('newPwd2').value.trim();
+  if(!p1){showToast('请输入新口令','❌');return}
+  if(p1!==p2){showToast('两次输入不一致','❌');return}
+  state.adminPwd=p1;saveData();closeModal();render();
+  showToast('口令已更新','🔒');
+}
+
+// ======================== Modal ========================
+function fmtBytes(b){
+  if(b>=1048576)return (b/1048576).toFixed(1)+' MB';
+  if(b>=1024)return (b/1024).toFixed(1)+' KB';
+  return b+' B';
+}
+function showStorageDetail(){
+  const d=detectStorage();
+  const ua=(navigator.userAgent||'').match(/Chrome\/[\d.]+|Firefox\/[\d.]+|Safari\/[\d.]+|Edg\/[\d.]+|OPR\/[\d.]+/g);
+  const browser=ua?ua.join(', '):'未知浏览器';
+  const html=
+    '<h3>数据与存储详情</h3><button class="close-btn" onclick="closeModal()">×</button>'+
+    '<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">数据仅保存在本机浏览器中，不联网上传。</div>'+
+    '<div class="form-group"><label>检测结果</label>'+
+    '<div style="padding:12px;border-radius:8px;background:'+(d.ok?'var(--accent-lt)':'#FFF4E0')+';color:'+(d.ok?'var(--accent)':'#9A6A00')+'">'+
+    (d.ok?'✅ 本地存储可用，数据可持久保存':'❌ 本地存储不可用：'+(d.note||'浏览器禁用了 localStorage'))+'</div></div>'+
+    '<div class="form-group"><label>存储位置</label><div>'+(d.ok?'本机浏览器 localStorage':'内存（本次浏览有效，刷新丢失）')+'</div></div>'+
+    '<div class="form-group"><label>当前占用</label><div>'+(d.ok&&d.bytes!==undefined?fmtBytes(d.bytes):'—')+'</div></div>'+
+    '<div class="form-group"><label>浏览器</label><div>'+browser+'</div></div>'+
+    (d.ok?'':'<div style="font-size:12px;color:#9A6A00;background:#FFF4E0;padding:10px;border-radius:8px">提示：请在浏览器设置中允许本站点存储数据，或改用 Chrome / Edge 浏览器。兼容模式下数据仅本次会话有效。</div>')+
+    '<button class="btn-primary" onclick="closeModal()">知道了</button>';
+  openModal(html);
+}
+// ======================== 数据备份与恢复 ========================
+function exportData(){
+  if(!state.members||state.members.length===0){showToast('暂无数据可导出','❌');return}
+  const backup={
+    app:'habit-tracker',
+    version:'2.2',
+    exportedAt:nowStr(),
+    data:state
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='习惯养成备份_'+todayStr()+'.json';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100);
+  showToast('备份文件已导出','📦');
+}
+function handleImportFile(input){
+  const file=input.files&&input.files[0];
+  if(!file){return}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let backup;
+    try{backup=JSON.parse(e.target.result)}
+    catch(err){showToast('文件格式错误，导入失败','❌');return}
+    if(!backup||backup.app!=='habit-tracker'||!backup.data||!Array.isArray(backup.data.members)){
+      showToast('不是有效的备份文件','❌');return;
+    }
+    const d=backup.data;
+    const memberNames=d.members.map(m=>m.name).join('、');
+    const totalHabits=d.members.reduce((s,m)=>s+(m.habits?m.habits.length:0),0);
+    // 二次确认
+    openModal('<h3>导入备份确认</h3><button class="close-btn" onclick="closeModal()">×</button>'
+      +'<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">导入后<b style="color:#c33">将覆盖当前全部数据</b>（成员、习惯、积分、打卡记录），请确认备份文件无误。</div>'
+      +'<div class="form-group"><label>备份时间</label><div>'+(backup.exportedAt||'—')+'</div></div>'
+      +'<div class="form-group"><label>成员</label><div>'+memberNames+'（共 '+d.members.length+' 人）</div></div>'
+      +'<div class="form-group"><label>任务数</label><div>共 '+totalHabits+' 个习惯任务</div></div>'
+      +'<button class="btn-primary" onclick="confirmImport()">确认导入</button>'
+      +'<button class="btn-danger" onclick="closeModal()">取消</button>');
+    window.__pendingImport=d;
+  };
+  reader.onerror=()=>{showToast('读取文件失败','❌')};
+  reader.readAsText(file,'utf-8');
+  input.value=''; // 允许重复选择同一文件
+}
+function confirmImport(){
+  const d=window.__pendingImport;
+  if(!d){closeModal();return}
+  state=d;
+  if(!state.currentMemberId&&state.members[0])state.currentMemberId=state.members[0].id;
+  if(!state.currentTab)state.currentTab='habits';
+  if(!state.mineView)state.mineView='main';
+  state.adminUnlocked=false; // 导入恢复后需重新输入口令，防误操作
+  saveData();closeModal();render();
+  window.__pendingImport=null;
+  showToast('数据已恢复','✅');
+}
+function openModal(html){
+  document.getElementById('modalContent').innerHTML=html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+document.getElementById('modalOverlay').addEventListener('click',e=>{
+  if(e.target.id==='modalOverlay')closeModal();
+});
+
+// ======================== Init ========================
+// 导入文件选择事件（事件委托，因 importFile 是动态渲染的）
+document.addEventListener('change',e=>{
+  if(e.target&&e.target.id==='importFile')handleImportFile(e.target);
+});
+
+detectStorage();      // 先检测浏览器存储兼容性
+initState();
+settlePunishments();  // 结算昨日未做到的惩罚任务（自动扣分）
+render();
+applyStorageBanner(); // 存储不可用时显示警示横幅
+</script>
+</body>
+</html>
