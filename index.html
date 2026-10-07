@@ -705,6 +705,16 @@ function renderHabits(el,m){
         timesHtml=`<div class="habit-goal">${done?'✅ 已完成 '+target+' 次':curCnt+'/'+target+' 次'}
           <span class="g-bar"><span class="g-fill" style="width:${tpct}%"></span></span></div>`;
       }
+      // 累计目标进度（跨天总次数，如一套分级读物全部刷完）
+      let totalHtml='';
+      if(h.totalTargetTimes>0){
+        const tCnt=countHabitTimes(m,h);
+        const tTot=h.totalTargetTimes;
+        const tPct=Math.min(100,Math.round(tCnt/tTot*100));
+        const tDone=tCnt>=tTot;
+        totalHtml=`<div class="habit-goal">${tDone?'🎉 已完成全部 '+tTot+' 次':'📚 累计 '+tCnt+'/'+tTot+' 次'}
+          <span class="g-bar"><span class="g-fill" style="width:${tPct}%"></span></span></div>`;
+      }
       let lockHtml='';
       if(locked){
         const pre=findHabit(m,h.prereq);
@@ -719,7 +729,7 @@ function renderHabits(el,m){
         html+=`<div class="habit-item${done?' done':''}${locked?' locked':''}${isPunish?' punish-item':''}">
           <div class="habit-icon">${h.icon}</div>
           <div class="habit-body"><div class="habit-name">${h.name}</div>
-            <div class="habit-meta">${ptsHtml}${isPunish?'<span class="pts-punish-lbl">⚠️ 没做到要扣分</span>':''}</div>${timesHtml}${goalHtml}${lockHtml}</div>
+            <div class="habit-meta">${ptsHtml}${isPunish?'<span class="pts-punish-lbl">⚠️ 没做到要扣分</span>':''}</div>${timesHtml}${totalHtml}${goalHtml}${lockHtml}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
             <button class="mini-btn" onclick="adjustCheckin('${h.id}',-1)" ${curCnt<=0?'disabled':''} title="撤销一次">−</button>
             <button class="mini-btn" onclick="adjustCheckin('${h.id}',1)" ${(done||locked)?'disabled':''} title="打卡一次">＋</button>
@@ -729,7 +739,7 @@ function renderHabits(el,m){
         html+=`<div class="habit-item${done?' done':''}${locked?' locked':''}${isPunish?' punish-item':''}" onclick="toggleCheckin('${h.id}')">
           <div class="habit-icon">${h.icon}</div>
           <div class="habit-body"><div class="habit-name">${h.name}</div>
-            <div class="habit-meta">${ptsHtml}${isPunish?'<span class="pts-punish-lbl">⚠️ 没做到要扣分</span>':''}</div>${timesHtml}${goalHtml}${lockHtml}</div>
+            <div class="habit-meta">${ptsHtml}${isPunish?'<span class="pts-punish-lbl">⚠️ 没做到要扣分</span>':''}</div>${timesHtml}${totalHtml}${goalHtml}${lockHtml}</div>
           <div class="habit-check"><span class="ck">${locked?'🔒':(done?'✓':'')}</span></div>
         </div>`;
       }
@@ -906,11 +916,12 @@ function renderAdmin(el){
     const habitList=m.habits.map(h=>{
       const freqTxt=h.freq==='once'?'一次性':((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
       const timesTxt=(h.targetTimes&&h.targetTimes>1)?' · 每日'+h.targetTimes+'次':'';
+      const totalTxt=(h.totalTargetTimes>0)?' · 累计目标'+h.totalTargetTimes+'次':'';
       const preTxt=h.prereq?(findHabit(m,h.prereq)?' · 先完成「'+findHabit(m,h.prereq).name+'」':''):'';
       return `<div class="menu-item" style="padding:12px">
         <div class="m-ic" style="width:34px;height:34px;font-size:18px">${h.icon}</div>
         <div class="m-body"><div class="m-name">${h.name}</div>
-          <div class="m-desc">${h.points<0?h.points:'+'+h.points}分 · ${freqTxt}${timesTxt}${h.goalDays?' · 目标'+h.goalDays+'天':''}${preTxt}${h.points<0?' · ⚠️ 惩罚':''}</div></div>
+          <div class="m-desc">${h.points<0?h.points:'+'+h.points}分 · ${freqTxt}${timesTxt}${totalTxt}${h.goalDays?' · 目标'+h.goalDays+'天':''}${preTxt}${h.points<0?' · ⚠️ 惩罚':''}</div></div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="a-btn approve" onclick="openHabitEditor('${m.id}','${h.id}')">编辑</button>
           <button class="a-btn reject" onclick="deleteHabit('${m.id}','${h.id}')">删除</button>
@@ -934,10 +945,11 @@ function renderAdmin(el){
     tpls.forEach(t=>{
       const freqTxt=t.freq==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
       const timesTxt=(t.targetTimes&&t.targetTimes>1)?' · 每日'+t.targetTimes+'次':'';
+      const totalTxt=(t.totalTargetTimes>0)?' · 累计目标'+t.totalTargetTimes+'次':'';
       html+=`<div class="menu-item" style="padding:12px">
         <div class="m-ic" style="width:34px;height:34px;font-size:18px">${t.icon}</div>
         <div class="m-body"><div class="m-name">${t.name}</div>
-          <div class="m-desc">${t.points<0?t.points:'+'+t.points}分 · ${freqTxt}${timesTxt}${t.goalDays?' · 目标'+t.goalDays+'天':''}${t.points<0?' · ⚠️ 惩罚':''}</div></div>
+          <div class="m-desc">${t.points<0?t.points:'+'+t.points}分 · ${freqTxt}${timesTxt}${totalTxt}${t.goalDays?' · 目标'+t.goalDays+'天':''}${t.points<0?' · ⚠️ 惩罚':''}</div></div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="a-btn approve" onclick="openTemplateAssign('${t.id}')">下发</button>
           <button class="a-btn approve" onclick="openTemplateEditor('${t.id}')">编辑</button>
@@ -1003,6 +1015,14 @@ function countHabitDays(m,h){
   }
   return cnt;
 }
+// 累计打卡总次数（跨天求和，用于「刷完一套 N 本」类进度目标，如牛津树一级全部读完）
+function countHabitTimes(m,h){
+  let cnt=0;
+  for(const ds in m.checkins){
+    cnt+=getCheckinCount(m,ds,h.id);
+  }
+  return cnt;
+}
 // 单次任务（targetTimes=1）点击切换：完成则撤销，未完成则打卡；多次任务由 ± 按钮调用 adjustCheckin
 function toggleCheckin(habitId){
   const m=getMember();if(!m)return;
@@ -1041,11 +1061,18 @@ function adjustCheckin(habitId,delta){
     }
     m.points+=h.points;
     logPoints(m,h.points,target>1?'完成一次：'+h.name:'完成习惯：'+h.name,h.icon);
+    const tBefore=countHabitTimes(m,h); // 打卡前的累计总数（打卡将使其 +1）
     m.checkins[today][habitId]=cur+1;
     const newCnt=cur+1;
+    // 累计目标达成（跨越阈值的那一次，独立于当日是否达标）
+    const totalHit=h.totalTargetTimes>0&&tBefore<h.totalTargetTimes&&tBefore+1>=h.totalTargetTimes;
     const msgs=['太棒了！','做得真好！','继续保持！','你真厉害！','又完成一个！'];
     const msg=msgs[Math.floor(Math.random()*msgs.length)];
-    if(newCnt>=target){
+    if(totalHit){
+      showToast('🎉 累计 '+h.totalTargetTimes+' 次全部完成！','🏆');
+      if(mode==='child')speak('太棒了，你全部完成了'+h.name+'的挑战');
+      celebrate();
+    }else if(newCnt>=target){
       showToast(msg,h.icon);
       if(mode==='child')speak(msg+'你完成了'+h.name);
       celebrate();
@@ -1054,11 +1081,11 @@ function adjustCheckin(habitId,delta){
         if(mode==='child')speak('太棒了，你完成了'+h.name+' '+h.goalDays+'天的挑战');
         celebrate();
       }
-      checkBadges(m);
     }else{
       showToast(msg+'（'+newCnt+'/'+target+'）',h.icon);
       if(mode==='child')speak(msg);
     }
+    checkBadges(m);
   }else{
     // ===== 撤销一次 =====
     if(cur<=0)return;
@@ -1461,7 +1488,9 @@ function openHabitEditor(memberId,id){
     <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
       <input type="number" id="hGoal" value="${h&&h.goalDays?h.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
-    <button class="btn-primary" onclick="saveHabit('${m.id}','${id||''}')">保存</button>
+    <div class="form-group"><label>累计目标次数（选填，如刷完一套 36 本）</label>
+      <input type="number" id="hTotal" value="${h&&h.totalTargetTimes?h.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
     ${h?`<button class="btn-danger" onclick="deleteHabit('${m.id}','${h.id}')">删除习惯</button>`:''}
   `);
 }
@@ -1474,6 +1503,8 @@ function saveHabit(memberId,id){
   const freq=document.getElementById('hFreq').value;
   const goalRaw=document.getElementById('hGoal').value;
   const goalDays=goalRaw?parseInt(goalRaw)||0:0;
+  const totalRaw=document.getElementById('hTotal').value;
+  const totalTargetTimes=totalRaw?Math.max(0,parseInt(totalRaw)||0):0;
   const timesRaw=document.getElementById('hTimes').value;
   const targetTimes=Math.max(1,parseInt(timesRaw)||1);
   const finalTarget=points<0?1:targetTimes;
@@ -1500,9 +1531,9 @@ function saveHabit(memberId,id){
   }
   if(id){
     const h=m.habits.find(x=>x.id===id);
-    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,targetTimes:finalTarget,prereq});
+    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,targetTimes:finalTarget,prereq});
   }else{
-    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,targetTimes:finalTarget,prereq,active:true});
+    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,targetTimes:finalTarget,prereq,active:true});
   }
   saveData();closeModal();render();
 }
@@ -1560,6 +1591,9 @@ function openTemplateEditor(id){
     <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
       <input type="number" id="tGoal" value="${t&&t.goalDays?t.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
+    <div class="form-group"><label>累计目标次数（选填，如刷完一套 36 本）</label>
+      <input type="number" id="tTotal" value="${t&&t.totalTargetTimes?t.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
     <button class="btn-primary" onclick="saveTemplate('${t?t.id:''}')">保存</button>
     ${t?`<button class="btn-danger" onclick="deleteTemplate('${t.id}')">删除模板</button>`:''}
   `);
@@ -1572,6 +1606,8 @@ function saveTemplate(id){
   const freq=document.getElementById('tFreq').value;
   const goalRaw=document.getElementById('tGoal').value;
   const goalDays=goalRaw?parseInt(goalRaw)||0:0;
+  const totalRaw=document.getElementById('tTotal').value;
+  const totalTargetTimes=totalRaw?Math.max(0,parseInt(totalRaw)||0):0;
   const timesRaw=document.getElementById('tTimes').value;
   const targetTimes=Math.max(1,parseInt(timesRaw)||1);
   const finalTarget=points<0?1:targetTimes;
@@ -1579,9 +1615,9 @@ function saveTemplate(id){
   document.querySelectorAll('[data-tday]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.tday))});
   if(id){
     const t=state.habitTemplates.find(x=>x.id===id);
-    Object.assign(t,{name,icon,points,freq,days,goalDays,targetTimes:finalTarget});
+    Object.assign(t,{name,icon,points,freq,days,goalDays,totalTargetTimes,targetTimes:finalTarget});
   }else{
-    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays,targetTimes:finalTarget});
+    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays,totalTargetTimes,targetTimes:finalTarget});
   }
   saveData();closeModal();render();
 }
@@ -1615,7 +1651,7 @@ function assignTemplate(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const mid=document.getElementById('assignMember').value;
   const m=state.members.find(x=>x.id===mid);if(!m)return;
-  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,targetTimes:t.targetTimes||1,active:true});
+  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,targetTimes:t.targetTimes||1,active:true});
   saveData();closeModal();render();
   showToast('已下发给 '+m.name,'📨');
 }
