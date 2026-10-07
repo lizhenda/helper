@@ -883,11 +883,11 @@ function renderAdmin(el){
   }else{
     html+='<div class="menu-list" style="margin-bottom:12px">';
     tpls.forEach(t=>{
-      const freqTxt=t.frequency==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
+      const freqTxt=t.freq==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
       html+=`<div class="menu-item" style="padding:12px">
         <div class="m-ic" style="width:34px;height:34px;font-size:18px">${t.icon}</div>
         <div class="m-body"><div class="m-name">${t.name}</div>
-          <div class="m-desc">${t.points<0?t.points:'+'+t.points}分 · ${freqTxt}${t.points<0?' · ⚠️ 惩罚':''}</div></div>
+          <div class="m-desc">${t.points<0?t.points:'+'+t.points}分 · ${freqTxt}${t.goalDays?' · 目标'+t.goalDays+'天':''}${t.points<0?' · ⚠️ 惩罚':''}</div></div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="a-btn approve" onclick="openTemplateAssign('${t.id}')">下发</button>
           <button class="a-btn approve" onclick="openTemplateEditor('${t.id}')">编辑</button>
@@ -1436,6 +1436,9 @@ function openTemplateEditor(id){
       <option value="once" ${t&&t.freq==='once'?'selected':''}>一次性</option>
     </select></div>
     <div class="form-group"><label>执行日期</label><div>${dayCk}</div></div>
+    <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
+      <input type="number" id="tGoal" value="${t&&t.goalDays?t.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
     <button class="btn-primary" onclick="saveTemplate('${t?t.id:''}')">保存</button>
     ${t?`<button class="btn-danger" onclick="deleteTemplate('${t.id}')">删除模板</button>`:''}
   `);
@@ -1446,13 +1449,15 @@ function saveTemplate(id){
   const icon=document.getElementById('tIcon').value;
   const points=parseInt(document.getElementById('tPoints').value)||0;
   const freq=document.getElementById('tFreq').value;
+  const goalRaw=document.getElementById('tGoal').value;
+  const goalDays=goalRaw?parseInt(goalRaw)||0:0;
   const days=[];
   document.querySelectorAll('[data-tday]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.tday))});
   if(id){
     const t=state.habitTemplates.find(x=>x.id===id);
-    Object.assign(t,{name,icon,points,freq,days});
+    Object.assign(t,{name,icon,points,freq,days,goalDays});
   }else{
-    state.habitTemplates.push({id:uid(),name,icon,points,freq,days});
+    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays});
   }
   saveData();closeModal();render();
 }
@@ -1475,7 +1480,7 @@ function assignTemplate(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const mid=document.getElementById('assignMember').value;
   const m=state.members.find(x=>x.id===mid);if(!m)return;
-  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:0,active:true});
+  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,active:true});
   saveData();closeModal();render();
   showToast('已下发给 '+m.name,'📨');
 }
