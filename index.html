@@ -1339,7 +1339,7 @@ function onAvatarFile(input){
   const f=input.files&&input.files[0];
   if(!f)return;
   if(!/^image\//.test(f.type)){showToast('请选择图片文件','❌');return}
-  if(f.size>5*1024*1024){showToast('图片不能超过 5MB','❌');return}
+  showToast('正在处理图片…','⏳');   // 大图压缩可能耗时 1~2 秒，给用户反馈
   compressAvatar(f,function(dataUrl){
     const hid=document.getElementById('mAvatarImg');if(!hid)return;
     hid.value=dataUrl;
@@ -1370,16 +1370,26 @@ function compressAvatar(file,cb){
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=768; // 高清头像：手机全屏查看几乎 1:1，桌面轻微放大，存储约 60~120KB/张
-      const scale=Math.min(1,MAX/Math.max(img.width,img.height));
-      const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+      // 超大图安全处理：单边 > 4096 时分步减半降采样（移动端 canvas 尺寸限制约 4096，直接解码大图可能失败）
+      let src=img,sw=img.width,sh=img.height;
+      while(Math.max(sw,sh)>4096){
+        const step=document.createElement('canvas');
+        step.width=Math.max(1,Math.round(sw/2));
+        step.height=Math.max(1,Math.round(sh/2));
+        step.getContext('2d').drawImage(src,0,0,step.width,step.height);
+        src=step;sw=step.width;sh=step.height;
+      }
+      const MAX=768; // 高清头像：手机全屏查看几乎 1:1，桌面轻微放大，存储约 40~120KB/张
+      const scale=Math.min(1,MAX/Math.max(sw,sh));
+      const w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));
       const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cv.getContext('2d').drawImage(src,0,0,w,h);
       cb(cv.toDataURL('image/jpeg',0.85));
     };
     img.onerror=()=>showToast('图片读取失败','❌');
     img.src=e.target.result;
   };
+  reader.onerror=()=>showToast('图片读取失败','❌');
   reader.readAsDataURL(file);
 }
 function deleteMember(id){
