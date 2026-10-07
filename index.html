@@ -107,6 +107,14 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
   justify-content:center;font-size:36px;flex-shrink:0;overflow:hidden}
 .mine-avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .user-chip img,.mc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+/* 点击头像编辑资料：可点击态 + 编辑角标 */
+.avatar-editable{position:relative;display:flex;align-items:center;justify-content:center;
+  overflow:visible;cursor:pointer;transition:transform .2s}
+.avatar-editable:active{transform:scale(.92)}
+.avatar-editable img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+.avatar-edit-badge{position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;
+  font-size:10px;pointer-events:none}
 .mine-info{flex:1;min-width:0}
 .mine-name{font-size:18px;font-weight:700;color:var(--accent)}
 .mine-meta{font-size:12px;color:var(--text-2);margin-top:4px}
@@ -652,7 +660,7 @@ function renderHabits(el,m){
   const r=28,c=2*Math.PI*r,dash=pct/100*c;
   let html=`<div class="progress-section">
     <div class="user-chip" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-      <div style="width:44px;height:44px;border-radius:50%;background:${m.color}22;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden">${avatarHtml(m)}</div>
+      <div class="avatar-editable" style="width:44px;height:44px;border-radius:50%;background:${m.color}22;font-size:22px" onclick="openMemberEditor('${m.id}',true)" title="点击编辑资料">${avatarHtml(m)}<span class="avatar-edit-badge">✏️</span></div>
       <div style="font-size:12px;font-weight:600;color:${m.color}">${m.name}</div>
     </div>
     <div class="ring"><svg width="64" height="64"><circle class="bg-c" cx="32" cy="32" r="${r}"/>
@@ -732,7 +740,7 @@ function findHabit(m,id){
 function renderMine(el,m){
   const streak=calcStreak(m);
   let html=`<div class="mine-profile">
-    <div class="mine-avatar" style="background:${m.color}22">${avatarHtml(m)}</div>
+    <div class="mine-avatar avatar-editable" style="background:${m.color}22" onclick="openMemberEditor('${m.id}',true)" title="点击编辑资料">${avatarHtml(m)}<span class="avatar-edit-badge">✏️</span></div>
     <div class="mine-info"><div class="mine-name">${m.name}</div>
       <div class="mine-meta">${modeLabel(m.mode)}</div></div>
     <div class="mine-points">${m.points}<span class="lbl">积分</span></div>
@@ -1248,11 +1256,11 @@ function pickPreset(color){
     el.classList.toggle('sel',el.dataset.color.toLowerCase()===color.toLowerCase());
   });
 }
-function openMemberEditor(id){
+function openMemberEditor(id,quick){
   const m=id?state.members.find(x=>x.id===id):null;
   const avatars=['👧','👦','👶','🧒','👩','👨','🧑','👴','👵','🐱','🐶'];
   let avatarOpts=avatars.map(a=>`<option value="${a}" ${m&&m.avatar===a?'selected':''}>${a} ${a}</option>`).join('');
-  openModal(`<h3>${m?'编辑成员':'添加成员'}</h3>
+  openModal(`<h3>${m?(quick?'编辑我的资料':'编辑成员'):'添加成员'}</h3>
     <button class="close-btn" onclick="closeModal()">×</button>
     <div class="form-group"><label>名称</label>
       <input type="text" id="mName" value="${m?m.name:''}" placeholder="如：姐姐、弟弟、爸爸"></div>
@@ -1279,7 +1287,8 @@ function openMemberEditor(id){
         <span class="cc-lbl">自定义颜色</span>
       </div></div>
     <button class="btn-primary" onclick="saveMember('${id||''}')">保存</button>
-    ${m?`<button class="btn-danger" onclick="deleteMember('${m.id}')">删除成员</button>`:''}
+    ${m&&!quick?`<button class="btn-danger" onclick="deleteMember('${m.id}')">删除成员</button>`:''}
+    ${m&&quick?`<div style="font-size:11px;color:var(--text-2);margin-top:10px;text-align:center">删除成员等高级操作请前往「我的 · 管理设置」</div>`:''}
   `);
 }
 function saveMember(id){
