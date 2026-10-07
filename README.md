@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: 'dbcedd02-1e4f-495e-baac-62eb700c264d'
-  PropagateID: 'dbcedd02-1e4f-495e-baac-62eb700c264d'
-  ReservedCode1: 'c4523d0a-9e14-4ce1-9345-531667f7668b'
-  ReservedCode2: 'c4523d0a-9e14-4ce1-9345-531667f7668b'
+  ProduceID: 'a75e34a2-6b11-4c25-af02-7ec2c097afa1'
+  PropagateID: 'a75e34a2-6b11-4c25-af02-7ec2c097afa1'
+  ReservedCode1: 'b1902be6-1be2-44f0-a0d1-5346e53dc30c'
+  ReservedCode2: 'b1902be6-1be2-44f0-a0d1-5346e53dc30c'
 ---
 
 # 儿童习惯养成工具
@@ -106,7 +106,7 @@ helper/
 
 ## 开源许可
 
-本项目基于 [MIT License](LICENSE) 开源，可自由使用、修改和分发。
+本项目基于 [GNU General Public License v3](LICENSE) 开源，可自由使用、修改和分发，但衍生作品须同样以 GPL v3 开源。
 
 ## 致谢
 
