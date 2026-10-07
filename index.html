@@ -112,14 +112,19 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
   overflow:visible;cursor:zoom-in;transition:transform .2s}
 .avatar-viewable:active{transform:scale(.92)}
 .avatar-viewable img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
-/* 头像放大预览弹窗内容 */
-.avatar-preview{display:flex;flex-direction:column;align-items:center;padding:20px 0 8px;cursor:pointer}
-.avatar-preview-circle{width:180px;height:180px;border-radius:50%;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,.12)}
-.avatar-preview-circle img{width:100%;height:100%;object-fit:cover;display:block}
-.avatar-preview-circle .emoji{font-size:110px;line-height:1}
-.avatar-preview-name{font-size:20px;font-weight:700;margin-top:16px}
-.avatar-preview-tip{font-size:12px;color:var(--text-2);margin-top:10px}
+/* 头像全屏预览：尽量铺满屏幕，点击任意处关闭 */
+.av-viewer{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:300;
+  display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.av-viewer.show{display:flex}
+.av-viewer .photo{width:100vw;height:100vh;object-fit:contain;display:block;animation:avPop .25s}
+.av-viewer .emoji-photo{font-size:min(55vw,55vh,480px);line-height:1;user-select:none;animation:avPop .25s}
+@keyframes avPop{from{transform:scale(.88);opacity:.4}to{transform:scale(1);opacity:1}}
+.av-viewer .av-name{position:absolute;bottom:40px;left:0;right:0;text-align:center;color:rgba(255,255,255,.92);
+  font-size:17px;font-weight:600;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.av-viewer .av-close{position:absolute;top:14px;right:18px;color:rgba(255,255,255,.9);font-size:32px;
+  background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1}
+.av-viewer .av-tip{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.4);
+  font-size:11px;pointer-events:none}
 .mine-info{flex:1;min-width:0}
 .mine-name{font-size:18px;font-weight:700;color:var(--accent)}
 .mine-meta{font-size:12px;color:var(--text-2);margin-top:4px}
@@ -297,6 +302,9 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal" id="modalContent"></div>
 </div>
+
+<!-- Avatar Fullscreen Viewer -->
+<div class="av-viewer" id="avatarViewer" onclick="closeAvatarViewer()"></div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -1295,14 +1303,18 @@ function openMemberEditor(id){
     ${m?`<button class="btn-danger" onclick="deleteMember('${m.id}')">删除成员</button>`:''}
   `);
 }
-// ======================== 头像放大预览（纯展示，无其他功能） ========================
+// ======================== 头像全屏预览（纯展示，无其他功能） ========================
 function showAvatarPreview(id){
   const m=state.members.find(x=>x.id===id);if(!m)return;
-  openModal(`<div class="avatar-preview" onclick="closeModal()">
-    <div class="avatar-preview-circle" style="background:${m.color}22">${m.avatarImg?`<img src="${m.avatarImg}" alt="${m.name}">`:`<span class="emoji">${m.avatar}</span>`}</div>
-    <div class="avatar-preview-name" style="color:${m.color}">${m.name}</div>
-    <div class="avatar-preview-tip">点击任意处关闭</div>
-  </div>`);
+  const v=document.getElementById('avatarViewer');
+  v.innerHTML=`<button class="av-close" onclick="closeAvatarViewer()">×</button>
+    ${m.avatarImg?`<img class="photo" src="${m.avatarImg}" alt="${m.name}">`:`<div class="emoji-photo">${m.avatar}</div>`}
+    <div class="av-name">${m.name}</div>
+    <div class="av-tip">点击任意处关闭</div>`;
+  v.classList.add('show');
+}
+function closeAvatarViewer(){
+  document.getElementById('avatarViewer').classList.remove('show');
 }
 function saveMember(id){
   const name=document.getElementById('mName').value.trim();
