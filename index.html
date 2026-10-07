@@ -1286,7 +1286,7 @@ function openMemberEditor(id){
           <button class="a-btn reject" style="margin:0;${m&&m.avatarImg?'':'display:none'}" id="avatarClearBtn" onclick="clearAvatarImg()">清除</button>
         </div>
         <input type="file" id="mAvatarFile" accept="image/*" style="display:none" onchange="onAvatarFile(this)">
-        <div style="font-size:11px;color:var(--text-2);margin-top:4px">支持上传本地图片，自动压缩为头像；不传则用 emoji</div></div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:4px">支持上传本地图片，自动压缩为高清头像（点击可全屏查看）；不传则用 emoji</div></div>
       <div class="form-group"><label>界面模式</label><select id="mMode">
         <option value="child" ${m&&m.mode==='child'?'selected':''}>儿童模式（大图标+语音）</option>
         <option value="teen" ${m&&m.mode==='teen'?'selected':''}>少年模式（文字+图标）</option>
@@ -1370,12 +1370,12 @@ function compressAvatar(file,cb){
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=128;
+      const MAX=768; // 高清头像：手机全屏查看几乎 1:1，桌面轻微放大，存储约 60~120KB/张
       const scale=Math.min(1,MAX/Math.max(img.width,img.height));
       const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
       const cv=document.createElement('canvas');cv.width=w;cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
-      cb(cv.toDataURL('image/jpeg',0.8));
+      cb(cv.toDataURL('image/jpeg',0.85));
     };
     img.onerror=()=>showToast('图片读取失败','❌');
     img.src=e.target.result;
