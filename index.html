@@ -248,13 +248,6 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
 .badge-card .b-nm{font-size:12px;font-weight:500}
 .badge-card .b-desc{font-size:10px;color:var(--text-2);margin-top:4px}
 /* admin view */
-.compare-chart{display:flex;gap:12px;margin-bottom:16px}
-.compare-col{flex:1;text-align:center}
-.compare-bar{height:100px;background:var(--accent-lt);border-radius:8px;position:relative;
-  overflow:hidden;display:flex;align-items:flex-end;margin-bottom:8px}
-.compare-bar .fill{width:100%;background:var(--accent);border-radius:8px;transition:height .5s}
-.compare-col .nm{font-size:12px;color:var(--text-2)}
-.compare-col .pct{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:4px}
 .approval-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);
   border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px}
 .approval-item .a-ic{font-size:28px}
@@ -1234,18 +1227,7 @@ function renderHistory(el,m){
 // ---- Admin view ----
 function renderAdmin(el){
   el.innerHTML='';
-  let html='<div class="section-title">完成度对比（今日）</div>';
-  const today=todayStr();const dow=dayOfWeek();
-  html+='<div class="compare-chart">';
-  state.members.forEach(m=>{
-    const habits=m.habits.filter(h=>h.active&&isHabitListed(m,h,dow));
-    let done=0;habits.forEach(h=>{if(isHabitDone(m,h,today))done++});
-    const pct=habits.length?Math.round(done/habits.length*100):0;
-    html+=`<div class="compare-col"><div class="pct">${pct}%</div>
-      <div class="compare-bar"><div class="fill" style="height:${pct}%;background:${m.color}"></div></div>
-      <div class="nm">${hasAvatarImg(m)?'🖼️':m.avatar} ${m.name}</div></div>`;
-  });
-  html+='</div>';
+  let html='';
   const allPending=[];
   state.members.forEach(m=>{
     (m.pendingRewards||[]).forEach(pr=>{
