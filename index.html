@@ -88,6 +88,10 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
 .mini-btn-wide{width:auto;padding:0 14px;font-size:13px}
 /* 耗时任务进行中状态：主题色描边高亮 */
 .habit-item.running-item{box-shadow:0 0 0 2px var(--accent-lt),var(--shadow)}
+/* 番茄时钟倒计时大字 */
+.pomo-clock{font-size:26px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;
+  letter-spacing:1px;line-height:1.2;margin:2px 0}
+[data-mode="child"] .pomo-clock{font-size:32px}
 .habit-item.done .habit-check .ck{opacity:1}
 [data-mode="child"] .habit-item{padding:16px}
 [data-mode="child"] .habit-icon{width:56px;height:56px;font-size:30px;border-radius:16px}
@@ -734,23 +738,44 @@ function renderHabits(el,m){
         let durHtml='';
         if(durInfo.cnt>0)durHtml=`<div class="habit-goal">⏱ 今日 ${fmtDur(durInfo.ms)}${target>1?' · '+durInfo.cnt+' 次':''}</div>`;
         let runningHtml='';
-        if(activeSess){
-          const s=getActiveSession(m,today,h.id);
-          const elapsed=Math.round((Date.now()-s.s)/60000);
-          runningHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">🔴 进行中 · 已开始 ${elapsed<1?'不到 1':elapsed} 分钟</div>`;
-        }
         let btnHtml='';
         if(activeSess){
-          btnHtml=`<button class="mini-btn mini-btn-wide" onclick="adjustCheckin('${h.id}',1)" ${locked?'disabled':''} title="打卡完成并结束计时">⏹ 完成</button>`;
+          const s=getActiveSession(m,today,h.id);
+          if(h.pomodoro>0){
+            // 番茄模式：番茄中 / 休息中 / 待继续 三态，倒计时局部刷新
+            const now=Date.now();
+            const pomoLen=h.pomodoro*60000;
+            const inPomo=s.pomoStart&&now<s.pomoStart+pomoLen;
+            const inRest=s.restUntil&&now<s.restUntil;
+            let clockHtml='';
+            if(inPomo){
+              clockHtml=`<div class="pomo-clock" id="pomo-clock-${h.id}">🍅 ${fmtClock(s.pomoStart+pomoLen-now)}</div>`;
+              runningHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">🔴 专注中 · 第 ${(s.pomosDone||0)+1} 个番茄</div>`;
+              btnHtml=`<button class="mini-btn mini-btn-wide" onclick="adjustCheckin('${h.id}',1)" title="打卡完成并结束计时">⏹ 完成</button>`;
+            }else if(inRest){
+              clockHtml=`<div class="pomo-clock" id="pomo-clock-${h.id}" style="color:var(--text-2)">☕ ${fmtClock(s.restUntil-now)}</div>`;
+              runningHtml=`<div class="habit-goal" style="color:var(--text-2)">休息一下 · 已完成 ${s.pomosDone||0} 个番茄</div>`;
+              btnHtml=`<button class="mini-btn mini-btn-wide" onclick="startNextPomo('${h.id}')" title="提前结束休息，继续专注">🍅 继续</button><button class="mini-btn mini-btn-wide" onclick="adjustCheckin('${h.id}',1)" title="打卡完成并结束计时">⏹ 完成</button>`;
+            }else{
+              runningHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">🍅 已专注 ${s.pomosDone||0} 个番茄，可继续或完成</div>`;
+              btnHtml=`<button class="mini-btn mini-btn-wide" onclick="startNextPomo('${h.id}')" title="继续下一个番茄">🍅 继续</button><button class="mini-btn mini-btn-wide" onclick="adjustCheckin('${h.id}',1)" title="打卡完成并结束计时">⏹ 完成</button>`;
+            }
+            runningHtml=clockHtml+runningHtml;
+          }else{
+            const elapsed=Math.round((Date.now()-s.s)/60000);
+            runningHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">🔴 进行中 · 已开始 ${elapsed<1?'不到 1':elapsed} 分钟</div>`;
+            btnHtml=`<button class="mini-btn mini-btn-wide" onclick="adjustCheckin('${h.id}',1)" ${locked?'disabled':''} title="打卡完成并结束计时">⏹ 完成</button>`;
+          }
         }else if(done){
           btnHtml=`<button class="mini-btn" onclick="adjustCheckin('${h.id}',-1)" title="撤销（退分并删除计时）">−</button>`;
         }else{
           btnHtml=`<button class="mini-btn mini-btn-wide" onclick="startTaskSession('${h.id}')" ${locked?'disabled':''} title="开始计时">▶ 开始</button>`;
         }
+        const pomoTag=h.pomodoro>0?' 🍅'+h.pomodoro:'';
         html+=`<div class="habit-item${done?' done':''}${locked?' locked':''}${activeSess?' running-item':''}">
           <div class="habit-icon">${h.icon}</div>
           <div class="habit-body"><div class="habit-name">${h.name}</div>
-            <div class="habit-meta">${ptsHtml}<span class="pts">· 记录耗时</span></div>${timesHtml}${runningHtml}${durHtml}${totalHtml}${goalHtml}${lockHtml}</div>
+            <div class="habit-meta">${ptsHtml}<span class="pts">· 记录耗时${pomoTag}</span></div>${timesHtml}${runningHtml}${durHtml}${totalHtml}${goalHtml}${lockHtml}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${btnHtml}</div>
         </div>`;
       }else if(target>1){
@@ -775,6 +800,7 @@ function renderHabits(el,m){
     });
   }
   el.innerHTML=html;
+  ensurePomoTimer(); // 有进行中的番茄/休息会话时启动每秒 tick（局部刷新倒计时）
 }
 
 // 判断某习惯今日是否被前置任务锁定（前置未完成）
@@ -946,7 +972,7 @@ function renderAdmin(el){
       const freqTxt=h.freq==='once'?'一次性':((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
       const timesTxt=(h.targetTimes&&h.targetTimes>1)?' · 每日'+h.targetTimes+'次':'';
       const totalTxt=(h.totalTargetTimes>0)?' · 累计目标'+h.totalTargetTimes+'次':'';
-      const trackTxt=h.trackTime?' · 记录耗时':'';
+      const trackTxt=h.trackTime?(' · 记录耗时'+(h.pomodoro?'🍅'+h.pomodoro:'')):'';
       const preTxt=h.prereq?(findHabit(m,h.prereq)?' · 先完成「'+findHabit(m,h.prereq).name+'」':''):'';
       return `<div class="menu-item" style="padding:12px">
         <div class="m-ic" style="width:34px;height:34px;font-size:18px">${h.icon}</div>
@@ -976,7 +1002,7 @@ function renderAdmin(el){
       const freqTxt=t.freq==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
       const timesTxt=(t.targetTimes&&t.targetTimes>1)?' · 每日'+t.targetTimes+'次':'';
       const totalTxt=(t.totalTargetTimes>0)?' · 累计目标'+t.totalTargetTimes+'次':'';
-      const trackTxt=t.trackTime?' · 记录耗时':'';
+      const trackTxt=t.trackTime?(' · 记录耗时'+(t.pomodoro?'🍅'+t.pomodoro:'')):'';
       html+=`<div class="menu-item" style="padding:12px">
         <div class="m-ic" style="width:34px;height:34px;font-size:18px">${t.icon}</div>
         <div class="m-body"><div class="m-name">${t.name}</div>
@@ -1069,7 +1095,7 @@ function sumSessionDur(m,day,habitId){
   getSessions(m,day,habitId).forEach(s=>{if(s.e){ms+=s.e-s.s;cnt++}});
   return {ms,cnt};
 }
-// 记录开始时间（创建会话）
+// 记录开始时间（创建会话；番茄任务同时启动番茄倒计时）
 function startTaskSession(habitId){
   const m=getMember();if(!m)return;
   const h=m.habits.find(x=>x.id===habitId);if(!h||!h.trackTime)return;
@@ -1084,16 +1110,109 @@ function startTaskSession(habitId){
   if(!m.timeLogs[today])m.timeLogs[today]={};
   if(!m.timeLogs[today][habitId])m.timeLogs[today][habitId]=[];
   if(getActiveSession(m,today,habitId))return; // 已在进行中
-  m.timeLogs[today][habitId].push({s:Date.now(),e:null});
+  const sess={s:Date.now(),e:null};
+  if(h.pomodoro>0){sess.pomosDone=0;sess.pomoStart=Date.now();ensureAudio()}
+  m.timeLogs[today][habitId].push(sess);
   saveData();render();
-  showToast('已开始「'+h.name+'」','▶️');
+  showToast(h.pomodoro>0?'🍅 番茄开始，专注 '+h.pomodoro+' 分钟！':'已开始「'+h.name+'」','▶️');
   if(m.mode==='child')speak('开始'+h.name+'啦，加油');
+}
+// 继续下一个番茄（休息结束/番茄满后手动继续）
+function startNextPomo(habitId){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  const sess=getActiveSession(m,today,habitId);
+  if(!sess)return;
+  sess.pomoStart=Date.now();
+  sess.restUntil=null;
+  ensureAudio();
+  saveData();render();
+  showToast('继续专注，加油！','🍅');
+  if(m.mode==='child')speak('继续加油');
 }
 // 毫秒 → 可读时长
 function fmtDur(ms){
   const min=Math.max(1,Math.round(ms/60000));
   if(min<60)return min+'分钟';
   return Math.floor(min/60)+'小时'+(min%60?min%60+'分':'');
+}
+// 毫秒 → mm:ss 倒计时格式
+function fmtClock(ms){
+  const s=Math.max(0,Math.ceil(ms/1000));
+  return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+// ======================== 番茄时钟（与耗时任务结合，全局每秒 tick，局部刷新倒计时） ========================
+let pomoTimer=null,audioCtx=null;
+function ensureAudio(){
+  if(!audioCtx){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+}
+// 番茄/休息到点提示音（Web Audio 合成叮叮叮，无需外部文件）
+function playChime(){
+  if(!audioCtx)return;
+  try{
+    const notes=[880,1108.73,1318.51];
+    notes.forEach((f,i)=>{
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      const t0=audioCtx.currentTime+i*0.18;
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0.001,t0);
+      g.gain.exponentialRampToValueAtTime(0.35,t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+0.35);
+      o.connect(g);g.connect(audioCtx.destination);
+      o.start(t0);o.stop(t0+0.4);
+    });
+  }catch(e){}
+}
+// 番茄休息时长（45 分钟番茄配 10 分钟休息，其余 5 分钟）
+function pomoRestLen(h){return (h.pomodoro===45?10:5)*60000}
+// 有进行中番茄/休息会话时启动全局计时器
+function ensurePomoTimer(){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  const has=m.habits.some(h=>h.trackTime&&h.pomodoro>0&&getActiveSession(m,today,h.id));
+  if(has&&!pomoTimer)pomoTimer=setInterval(tickPomo,1000);
+}
+// 每秒 tick：局部更新倒计时显示；到点（番茄满/休息完）触发提醒并重渲染
+function tickPomo(){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  const now=Date.now();
+  let hasActive=false;
+  m.habits.forEach(h=>{
+    if(!h.trackTime||!h.pomodoro)return;
+    const sess=getActiveSession(m,today,h.id);
+    if(!sess)return;
+    const pomoLen=h.pomodoro*60000;
+    const el=document.getElementById('pomo-clock-'+h.id);
+    if(sess.pomoStart&&now<sess.pomoStart+pomoLen){
+      hasActive=true; // 番茄中：仅更新倒计时文字
+      if(el)el.textContent='🍅 '+fmtClock(sess.pomoStart+pomoLen-now);
+    }else if(sess.restUntil&&now<sess.restUntil){
+      hasActive=true; // 休息中：仅更新倒计时文字
+      if(el)el.textContent='☕ '+fmtClock(sess.restUntil-now);
+    }else if(sess.pomoStart&&now>=sess.pomoStart+pomoLen&&!sess.restUntil){
+      // 番茄到点：进入休息，提醒
+      hasActive=true;
+      sess.pomosDone=(sess.pomosDone||0)+1;
+      sess.pomoStart=null;
+      sess.restUntil=now+pomoRestLen(h);
+      saveData();
+      playChime();
+      showToast('🍅 番茄完成！休息 '+(pomoRestLen(h)/60000)+' 分钟吧','🍅');
+      if(m.mode==='child')speak('番茄完成啦，休息一下');
+      render();
+    }else if(sess.restUntil&&now>=sess.restUntil&&!sess.pomoStart){
+      // 休息结束：提醒可继续
+      hasActive=true;
+      sess.restUntil=null;
+      saveData();
+      playChime();
+      showToast('休息结束，可以继续啦','💪');
+      render();
+    }
+  });
+  if(!hasActive&&pomoTimer){clearInterval(pomoTimer);pomoTimer=null}
 }
 // 单次任务（targetTimes=1）点击切换：完成则撤销，未完成则打卡；多次任务由 ± 按钮调用 adjustCheckin
 function toggleCheckin(habitId){
@@ -1132,13 +1251,19 @@ function adjustCheckin(habitId,delta){
       return;
     }
     m.points+=h.points;
-    // 耗时任务：打卡即结束计时，并把耗时写入积分日志
+    // 耗时任务：打卡即结束计时，并把耗时写入积分日志（番茄任务记专注时长，不含休息）
     let durTxt='';
     if(h.trackTime){
       const active=getActiveSession(m,today,habitId);
       if(active){
         active.e=Date.now();
-        durTxt='（用时'+fmtDur(active.e-active.s)+'）';
+        if(h.pomodoro>0){
+          const pomoLen=h.pomodoro*60000;
+          const curMs=active.pomoStart?Math.min(active.e,active.pomoStart+pomoLen)-active.pomoStart:0;
+          durTxt='（专注'+fmtDur((active.pomosDone||0)*pomoLen+curMs)+'）';
+        }else{
+          durTxt='（用时'+fmtDur(active.e-active.s)+'）';
+        }
       }
     }
     logPoints(m,h.points,(target>1?'完成一次：':'完成习惯：')+h.name+durTxt,h.icon);
@@ -1529,6 +1654,8 @@ function syncPunishPrereq(){
   if(timesInp){timesInp.disabled=punish;if(punish)timesInp.value=1}
   if(timesHint){timesHint.innerHTML=punish?'惩罚任务固定为 1 次':'大于 1 时每天需打卡多次，每次得分'}
   if(trackCb){trackCb.disabled=punish;if(punish)trackCb.checked=false}
+  const pomoWrap=document.getElementById('hPomoWrap');
+  if(pomoWrap)pomoWrap.style.display=(!punish&&trackCb&&trackCb.checked)?'':'none';
   if(punish){
     sel.value='';
     hint.innerHTML='<span style="color:#e74c3c">惩罚任务不支持设置前置任务</span>';
@@ -1582,8 +1709,17 @@ function openHabitEditor(memberId,id){
       <input type="number" id="hTotal" value="${h&&h.totalTargetTimes?h.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
     <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
-      <input type="checkbox" id="hTrack" ${h&&h.trackTime?'checked':''} ${isPunish?'disabled':''} style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
+      <input type="checkbox" id="hTrack" ${h&&h.trackTime?'checked':''} ${isPunish?'disabled':''} onchange="syncHabitPomoVis()" style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">开启后打卡页显示「▶ 开始 / ⏹ 完成」，完成后显示今日用时，积分日志附「（用时 N 分钟）」；适合写作业、练琴等关注时长的任务</div></div>
+    <div class="form-group" id="hPomoWrap" style="${(h&&h.trackTime)?'':'display:none'}">
+      <label>番茄计时（可选）</label>
+      <select id="hPomo">
+        <option value="0" ${(h&&!h.pomodoro)?'selected':''}>普通计时（不启用番茄）</option>
+        <option value="15" ${h&&h.pomodoro===15?'selected':''}>🍅 番茄 15 分钟 + 休息 5 分钟</option>
+        <option value="25" ${(!h||(h.pomodoro===25))?'selected':''}>🍅 番茄 25 分钟 + 休息 5 分钟（推荐）</option>
+        <option value="45" ${h&&h.pomodoro===45?'selected':''}>🍅 番茄 45 分钟 + 休息 10 分钟</option>
+      </select>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">开始后倒计时，番茄到点响铃提醒休息，休息结束提醒继续；可随时提前完成打卡</div></div>
     <button class="btn-primary" onclick="saveHabit('${m.id}','${id||''}')">保存</button>
     ${h?`<button class="btn-danger" onclick="deleteHabit('${m.id}','${h.id}')">删除习惯</button>`:''}
   `);
@@ -1600,6 +1736,7 @@ function saveHabit(memberId,id){
   const totalRaw=document.getElementById('hTotal').value;
   const totalTargetTimes=totalRaw?Math.max(0,parseInt(totalRaw)||0):0;
   const trackTime=points<0?false:document.getElementById('hTrack').checked;
+  const pomodoro=(!trackTime||points<0)?0:(parseInt(document.getElementById('hPomo').value)||0);
   const timesRaw=document.getElementById('hTimes').value;
   const targetTimes=Math.max(1,parseInt(timesRaw)||1);
   const finalTarget=points<0?1:targetTimes;
@@ -1626,9 +1763,9 @@ function saveHabit(memberId,id){
   }
   if(id){
     const h=m.habits.find(x=>x.id===id);
-    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,targetTimes:finalTarget,prereq});
+    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq});
   }else{
-    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,targetTimes:finalTarget,prereq,active:true});
+    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq,active:true});
   }
   saveData();closeModal();render();
 }
@@ -1690,8 +1827,16 @@ function openTemplateEditor(id){
       <input type="number" id="tTotal" value="${t&&t.totalTargetTimes?t.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
     <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
-      <input type="checkbox" id="tTrack" ${t&&t.trackTime?'checked':''} ${t&&t.points<0?'disabled':''} style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
+      <input type="checkbox" id="tTrack" ${t&&t.trackTime?'checked':''} ${t&&t.points<0?'disabled':''} onchange="syncTemplatePomoVis()" style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">开启后打卡页显示「▶ 开始 / ⏹ 完成」，完成后显示今日用时</div></div>
+    <div class="form-group" id="tPomoWrap" style="${(t&&t.trackTime)?'':'display:none'}">
+      <label>番茄计时（可选）</label>
+      <select id="tPomo">
+        <option value="0" ${(t&&!t.pomodoro)?'selected':''}>普通计时（不启用番茄）</option>
+        <option value="15" ${t&&t.pomodoro===15?'selected':''}>🍅 番茄 15 分钟 + 休息 5 分钟</option>
+        <option value="25" ${(!t||(t.pomodoro===25))?'selected':''}>🍅 番茄 25 分钟 + 休息 5 分钟（推荐）</option>
+        <option value="45" ${t&&t.pomodoro===45?'selected':''}>🍅 番茄 45 分钟 + 休息 10 分钟</option>
+      </select></div>
     <button class="btn-primary" onclick="saveTemplate('${t?t.id:''}')">保存</button>
     ${t?`<button class="btn-danger" onclick="deleteTemplate('${t.id}')">删除模板</button>`:''}
   `);
@@ -1707,6 +1852,7 @@ function saveTemplate(id){
   const totalRaw=document.getElementById('tTotal').value;
   const totalTargetTimes=totalRaw?Math.max(0,parseInt(totalRaw)||0):0;
   const trackTime=points<0?false:document.getElementById('tTrack').checked;
+  const pomodoro=(!trackTime||points<0)?0:(parseInt(document.getElementById('tPomo').value)||0);
   const timesRaw=document.getElementById('tTimes').value;
   const targetTimes=Math.max(1,parseInt(timesRaw)||1);
   const finalTarget=points<0?1:targetTimes;
@@ -1714,15 +1860,26 @@ function saveTemplate(id){
   document.querySelectorAll('[data-tday]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.tday))});
   if(id){
     const t=state.habitTemplates.find(x=>x.id===id);
-    Object.assign(t,{name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,targetTimes:finalTarget});
+    Object.assign(t,{name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget});
   }else{
-    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,targetTimes:finalTarget});
+    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget});
   }
   saveData();closeModal();render();
 }
 function deleteTemplate(id){
   state.habitTemplates=state.habitTemplates.filter(t=>t.id!==id);
   saveData();closeModal();render();
+}
+// 勾选/取消「记录耗时」时同步显隐番茄选项（习惯 / 模板两处编辑器共用）
+function syncHabitPomoVis(){
+  const track=document.getElementById('hTrack');
+  const wrap=document.getElementById('hPomoWrap');
+  if(track&&wrap)wrap.style.display=track.checked?'':'none';
+}
+function syncTemplatePomoVis(){
+  const track=document.getElementById('tTrack');
+  const wrap=document.getElementById('tPomoWrap');
+  if(track&&wrap)wrap.style.display=track.checked?'':'none';
 }
 // 模板积分输入变化时：负分（惩罚）任务禁用次数与耗时开关
 function syncTemplateTimes(){
@@ -1735,6 +1892,8 @@ function syncTemplateTimes(){
   timesInp.disabled=punish;
   if(punish)timesInp.value=1;
   if(trackCb){trackCb.disabled=punish;if(punish)trackCb.checked=false}
+  const pomoWrap=document.getElementById('tPomoWrap');
+  if(pomoWrap)pomoWrap.style.display=(!punish&&trackCb&&trackCb.checked)?'':'none';
   if(hint)hint.innerHTML=punish?'惩罚任务固定为 1 次':'大于 1 时每天需打卡多次，每次得分';
 }
 function openTemplateAssign(id){
@@ -1752,7 +1911,7 @@ function assignTemplate(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const mid=document.getElementById('assignMember').value;
   const m=state.members.find(x=>x.id===mid);if(!m)return;
-  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,targetTimes:t.targetTimes||1,active:true});
+  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,active:true});
   saveData();closeModal();render();
   showToast('已下发给 '+m.name,'📨');
 }
