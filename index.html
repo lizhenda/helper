@@ -729,7 +729,7 @@ function renderContent(){
 // ---- Habits Tab (今日习惯) ----
 function renderHabits(el,m){
   const today=todayStr();const dow=dayOfWeek();
-  let activeHabits=m.habits.filter(h=>h.active&&isHabitToday(h,dow));
+  let activeHabits=m.habits.filter(h=>h.active&&isHabitListed(m,h,dow));
   let doneCount=0;
   activeHabits.forEach(h=>{if(isHabitDone(m,h,today))doneCount++});
   const pct=activeHabits.length?Math.round(doneCount/activeHabits.length*100):0;
@@ -788,7 +788,33 @@ function renderHabits(el,m){
       const ptsHtml=isPunish
         ? `<span class="pts punish">${h.points}分 <span class="punish-tip">没做到才扣</span></span>`
         : `<span class="pts">+${h.points}分${target>1?'/次 · 每日'+target+'次':''}</span>`;
-      if(h.trackTime){
+      if(h.freq==='ebbinghaus'){
+        // 艾宾浩斯复习：只在学习日/到期日出现（isHabitToday 过滤），阶段进度 + 间隔安排
+        const stage=h.ebbStage||0;
+        const doneToday=getCheckinCount(m,today,h.id)>0;
+        const epct=Math.min(100,Math.round(stage/EBB_TOTAL*100));
+        const barHtml=`<div class="habit-goal">${stage>=EBB_TOTAL?'🎉 已记住！':'🧠 记忆进度 '+stage+'/'+EBB_TOTAL+' 次'}
+          <span class="g-bar"><span class="g-fill" style="width:${epct}%"></span></span></div>`;
+        let stateHtml='',btnHtml='';
+        if(doneToday){
+          stateHtml=stage>=EBB_TOTAL
+            ?`<div class="habit-goal" style="color:var(--accent);font-weight:600">🎉 今日已记住，全部复习完成！</div>`
+            :`<div class="habit-goal" style="color:var(--accent);font-weight:600">✅ 今日已${stage===1?'学习':'复习'} · 下次 ${EBB_INTERVALS[stage-1]} 天后</div>`;
+          btnHtml=`<button class="mini-btn" onclick="ebbingUndo('${h.id}')" title="撤销（退分并回退阶段）">−</button>`;
+        }else if(stage===0){
+          stateHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">🌱 新记忆 · 今天开始学习</div>`;
+          btnHtml=`<button class="mini-btn mini-btn-wide" onclick="ebbingCheckin('${h.id}')">📖 学习打卡</button>`;
+        }else{
+          stateHtml=`<div class="habit-goal" style="color:var(--accent);font-weight:600">⏰ 今日到期复习（第 ${stage+1}/${EBB_TOTAL} 次）</div>`;
+          btnHtml=`<button class="mini-btn mini-btn-wide" onclick="ebbingCheckin('${h.id}')">📖 复习打卡</button>`;
+        }
+        html+=`<div class="habit-item${doneToday?' done':''}">
+          <div class="habit-icon">${h.icon}</div>
+          <div class="habit-body"><div class="habit-name">${h.name}</div>
+            <div class="habit-meta">${ptsHtml}<span class="pts">· 艾宾浩斯复习</span></div>${stateHtml}${barHtml}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${btnHtml}</div>
+        </div>`;
+      }else if(h.trackTime){
         // 耗时任务：▶ 开始 → ⏹ 完成（打卡并结束计时）→ − 撤销（退分+删会话）
         const activeSess=!!getActiveSession(m,today,h.id);
         const durInfo=sumSessionDur(m,today,h.id);
@@ -861,6 +887,55 @@ function renderHabits(el,m){
 }
 
 // 判断某习惯今日是否被前置任务锁定（前置未完成）
+// 艾宾浩斯打卡：首学或到期复习，推进阶段并安排下次间隔
+function ebbingCheckin(habitId){
+  const m=getMember();if(!m)return;
+  const today=todayStr();
+  const h=m.habits.find(x=>x.id===habitId);if(!h||h.freq!=='ebbinghaus')return;
+  const stage=h.ebbStage||0;
+  if(stage>=EBB_TOTAL){showToast('已完成全部复习，已记住！','🎉');return}
+  if(stage>0&&(h.ebbNext||'')>today){showToast('还未到复习时间','⏳');return}
+  if(getCheckinCount(m,today,habitId)>0)return;
+  if(!m.checkins[today])m.checkins[today]={};
+  m.checkins[today][habitId]=1;
+  if(h.points>0){
+    m.points+=h.points;
+    logPoints(m,h.points,(stage===0?'学习':'复习')+'：'+h.name,h.icon);
+  }
+  h.ebbStage=stage+1;
+  if(h.ebbStage>=EBB_TOTAL){
+    h.ebbNext=null;
+    showToast('🎉 已完成全部复习，「'+h.name+'」记住了！','🏆');
+    if(m.mode==='child')speak('太棒了，你全部记住了'+h.name);
+    celebrate();
+    checkBadges(m);
+  }else{
+    const gap=EBB_INTERVALS[h.ebbStage-1];
+    h.ebbNext=dateStrOffset(gap);
+    showToast((stage===0?'学习完成！':'复习完成！')+'下次 '+gap+' 天后','📖');
+    if(m.mode==='child')speak('太棒了');
+    celebrate();
+    checkBadges(m);
+  }
+  saveData();render();
+}
+// 艾宾浩斯撤销：回退阶段并按原打卡日重算下次间隔
+function ebbingUndo(habitId){
+  const m=getMember();if(!m)return;
+  const h=m.habits.find(x=>x.id===habitId);if(!h||h.freq!=='ebbinghaus')return;
+  const stage=h.ebbStage||0;
+  if(stage<=0)return;
+  let lastDay=null;
+  Object.keys(m.checkins).sort().forEach(ds=>{if(getCheckinCount(m,ds,habitId)>0)lastDay=ds});
+  if(!lastDay)return;
+  delete m.checkins[lastDay][habitId];
+  if(Object.keys(m.checkins[lastDay]).length===0)delete m.checkins[lastDay];
+  if(h.points>0){m.points-=h.points;logPoints(m,-h.points,'撤销复习：'+h.name,h.icon)}
+  h.ebbStage=stage-1;
+  h.ebbNext=(h.ebbStage<=0)?null:offsetDateStr(lastDay,EBB_INTERVALS[h.ebbStage-1]);
+  saveData();render();
+  showToast('已撤销','↩️');
+}
 function isLockedHabit(m,h){
   if(!h.prereq)return false;
   const pre=findHabit(m,h.prereq);
@@ -880,7 +955,7 @@ function renderLeaderboard(el){
   const metric=state.leaderMetric||'points';
   const today=todayStr();const dow=dayOfWeek();
   const rows=state.members.map(m=>{
-    const habits=m.habits.filter(h=>h.active&&isHabitToday(h,dow));
+    const habits=m.habits.filter(h=>h.active&&isHabitListed(m,h,dow));
     let done=0;habits.forEach(h=>{if(isHabitDone(m,h,today))done++});
     const rate=habits.length?done/habits.length:0;
     return {id:m.id,name:m.name,color:m.color,avatarHtml:avatarHtml(m),
@@ -1163,7 +1238,7 @@ function renderAdmin(el){
   const today=todayStr();const dow=dayOfWeek();
   html+='<div class="compare-chart">';
   state.members.forEach(m=>{
-    const habits=m.habits.filter(h=>h.active&&isHabitToday(h,dow));
+    const habits=m.habits.filter(h=>h.active&&isHabitListed(m,h,dow));
     let done=0;habits.forEach(h=>{if(isHabitDone(m,h,today))done++});
     const pct=habits.length?Math.round(done/habits.length*100):0;
     html+=`<div class="compare-col"><div class="pct">${pct}%</div>
@@ -1203,8 +1278,8 @@ function renderAdmin(el){
   html+='<div class="menu-list" style="margin-bottom:12px">';
   state.members.forEach(m=>{
     const habitList=m.habits.map(h=>{
-      const freqTxt=h.freq==='once'?'一次性':((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
-      const timesTxt=(h.targetTimes&&h.targetTimes>1)?' · 每日'+h.targetTimes+'次':'';
+      const freqTxt=h.freq==='ebbinghaus'?ebbStateTxt(h):(h.freq==='once'?'一次性':((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日'));
+      const timesTxt=h.freq==='ebbinghaus'?'':((h.targetTimes&&h.targetTimes>1)?' · 每日'+h.targetTimes+'次':'');
       const totalTxt=(h.totalTargetTimes>0)?' · 累计目标'+h.totalTargetTimes+'次':'';
       const trackTxt=h.trackTime?(' · 记录耗时'+(h.pomodoro?'🍅'+h.pomodoro:'')):'';
       const preTxt=h.prereq?(findHabit(m,h.prereq)?' · 先完成「'+findHabit(m,h.prereq).name+'」':''):'';
@@ -1233,8 +1308,8 @@ function renderAdmin(el){
   }else{
     html+='<div class="menu-list" style="margin-bottom:12px">';
     tpls.forEach(t=>{
-      const freqTxt=t.freq==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日');
-      const timesTxt=(t.targetTimes&&t.targetTimes>1)?' · 每日'+t.targetTimes+'次':'';
+      const freqTxt=t.freq==='ebbinghaus'?'艾宾浩斯复习（1/2/4/7/15/30天）':(t.freq==='once'?'一次性':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日'));
+      const timesTxt=t.freq==='ebbinghaus'?'':((t.targetTimes&&t.targetTimes>1)?' · 每日'+t.targetTimes+'次':'');
       const totalTxt=(t.totalTargetTimes>0)?' · 累计目标'+t.totalTargetTimes+'次':'';
       const trackTxt=t.trackTime?(' · 记录耗时'+(t.pomodoro?'🍅'+t.pomodoro:'')):'';
       html+=`<div class="menu-item" style="padding:12px">
@@ -1281,10 +1356,46 @@ function renderAdmin(el){
 }
 
 // ======================== Logic ========================
+// ======================== 艾宾浩斯遗忘曲线复习 ========================
+// 间隔序列：首学当天 + 隔 1/2/4/7/15/30 天各复习一次，共 7 次打卡
+const EBB_INTERVALS=[1,2,4,7,15,30];
+const EBB_TOTAL=7;
+// 基于指定日期字符串偏移 n 天（dateStrOffset 基于今天，此函数基于任意天）
+function offsetDateStr(ds,n){
+  const d=new Date(ds+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// 距今天还有几天（基于日期字符串）
+function ebbDaysUntil(ds){
+  const d=new Date(ds+'T00:00:00');
+  const now=new Date();now.setHours(0,0,0,0);
+  return Math.round((d-now)/86400000);
+}
+// 管理列表用：艾宾浩斯任务状态描述
+function ebbStateTxt(h){
+  const stage=h.ebbStage||0;
+  if(stage>=EBB_TOTAL)return '艾宾浩斯 · 🎉 已记住';
+  if(stage===0)return '艾宾浩斯 · 待学习';
+  const due=(h.ebbNext||'')<=todayStr();
+  return '艾宾浩斯 · 第'+stage+'/'+EBB_TOTAL+'次 · '+(due?'今日到期复习':'下次'+ebbDaysUntil(h.ebbNext)+'天后');
+}
 function isHabitToday(h,dow){
+  if(h.freq==='ebbinghaus'){
+    // 艾宾浩斯：已完成全部复习不再显示；未学习或到了复习日（含逾期补卡）才显示
+    if((h.ebbStage||0)>=EBB_TOTAL)return false;
+    if(!(h.ebbStage>0))return true;
+    return (h.ebbNext||'')<=todayStr();
+  }
   if(h.freq==='once')return true;
   if(h.freq==='daily')return h.days?h.days.includes(dow):true;
   return true;
+}
+// 列表口径：与 isHabitToday 的差异——艾宾浩斯任务今日已学习/复习后仍计入今日列表，
+// 以「✅ 今日已学/已复习」形态展示并提供撤销入口（否则打卡后卡片消失，误触无法回退）
+function isHabitListed(m,h,dow){
+  if(h.freq==='ebbinghaus'&&getCheckinCount(m,todayStr(),h.id)>0)return true;
+  return isHabitToday(h,dow);
 }
 // 获取某天某习惯的打卡次数（兼容旧数据 true=1次）
 function getCheckinCount(m,day,habitId){
@@ -1922,27 +2033,29 @@ function openHabitEditor(memberId,id){
         <input type="number" id="hPoints" value="${h?h.points:1}" min="-20" max="10" step="1" oninput="syncPunishPrereq()">
         <div style="font-size:11px;color:var(--text-2);margin-top:4px">填<span style="color:#e74c3c;font-weight:600">负数</span>为惩罚任务（如不吃零食 -2 分）：做到不扣分，没做到自动扣分</div></div>
     </div>
-    <div class="form-group"><label>频率</label><select id="hFreq">
+    <div class="form-group"><label>频率</label><select id="hFreq" onchange="syncFreqFields()">
       <option value="daily" ${(h&&h.freq==='daily')||!h?'selected':''}>每日</option>
       <option value="once" ${h&&h.freq==='once'?'selected':''}>一次性</option>
-    </select></div>
+      <option value="ebbinghaus" ${h&&h.freq==='ebbinghaus'?'selected':''}>艾宾浩斯复习（1/2/4/7/15/30 天）</option>
+    </select>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="freqHint" ${h&&h.freq==='ebbinghaus'?'':'display:none'}>记忆类任务专属：首学后按遗忘曲线间隔到期才出现复习打卡，共 7 次，全部完成即「已记住」</div></div>
     <div class="form-group" id="daysGroup"><label>执行日期</label><div>${dayCk}</div></div>
-    <div class="form-group"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
+    <div class="form-group" id="timesGroup"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
       <input type="number" id="hTimes" value="${h&&h.targetTimes?h.targetTimes:1}" min="1" max="20" step="1" ${isPunish?'disabled':''}>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="timesHint">${isPunish?'惩罚任务固定为 1 次':'大于 1 时每天需打卡多次，每次得分'}</div></div>
-    <div class="form-group"><label>前置任务（选填）</label>
+    <div class="form-group" id="prereqGroup"><label>前置任务（选填）</label>
       <select id="hPrereq" ${isPunish?'disabled':''}>
         <option value="">无前置任务</option>
         ${preOpts}
       </select>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="prereqHint">${isPunish?'<span style="color:#e74c3c">惩罚任务不支持设置前置任务</span>':'设置后，需先完成该任务当天打卡，才能完成此任务（适合：先复习→再背诵→抄生字→做题）'}</div></div>
-    <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
+    <div class="form-group" id="goalGroup"><label>目标天数（选填，如 100 天挑战）</label>
       <input type="number" id="hGoal" value="${h&&h.goalDays?h.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
-    <div class="form-group"><label>累计目标次数（选填，如刷完一套 36 本）</label>
+    <div class="form-group" id="totalGroup"><label>累计目标次数（选填，如刷完一套 36 本）</label>
       <input type="number" id="hTotal" value="${h&&h.totalTargetTimes?h.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
-    <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
+    <div class="form-group" id="trackGroup"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
       <input type="checkbox" id="hTrack" ${h&&h.trackTime?'checked':''} ${isPunish?'disabled':''} onchange="syncHabitPomoVis()" style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">开启后打卡页显示「▶ 开始 / ⏹ 完成」，完成后显示今日用时，积分日志附「（用时 N 分钟）」；适合写作业、练琴等关注时长的任务</div></div>
     <div class="form-group" id="hPomoWrap" style="${(h&&h.trackTime)?'':'display:none'}">
@@ -1957,6 +2070,21 @@ function openHabitEditor(memberId,id){
     <button class="btn-primary" onclick="saveHabit('${m.id}','${id||''}')">保存</button>
     ${h?`<button class="btn-danger" onclick="deleteHabit('${m.id}','${h.id}')">删除习惯</button>`:''}
   `);
+  syncFreqFields();
+}
+// 频率切换联动：艾宾浩斯复习隐藏不适用的字段（执行日期/每日次数/前置/目标天数/累计目标/耗时）
+function syncFreqFields(){
+  const sel=document.getElementById('hFreq');
+  if(!sel)return;
+  const ebb=sel.value==='ebbinghaus';
+  ['daysGroup','timesGroup','prereqGroup','goalGroup','totalGroup','trackGroup'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=ebb?'none':'';
+  });
+  const hint=document.getElementById('freqHint');
+  if(hint)hint.style.display=ebb?'':'none';
+  const pomoWrap=document.getElementById('hPomoWrap');
+  if(pomoWrap&&ebb)pomoWrap.style.display='none';
 }
 function saveHabit(memberId,id){
   const m=memberId?state.members.find(x=>x.id===memberId):getMember();if(!m)return;
@@ -1997,9 +2125,20 @@ function saveHabit(memberId,id){
   }
   if(id){
     const h=m.habits.find(x=>x.id===id);
-    Object.assign(h,{name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq});
+    const patch={name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq};
+    if(freq==='ebbinghaus'){
+      // 艾宾浩斯：不适用字段强制清空；编辑已有任务保留 ebbStage/ebbNext（不打断复习进度）
+      Object.assign(patch,{days:[1,2,3,4,5,6,7],targetTimes:1,trackTime:false,pomodoro:0,prereq:'',goalDays:0,totalTargetTimes:0});
+      if(h.ebbStage===undefined){patch.ebbStage=0;patch.ebbNext=null}
+    }else if(h.ebbStage!==undefined){
+      // 从艾宾浩斯切回普通频率：清除复习状态
+      Object.assign(patch,{ebbStage:0,ebbNext:null});
+    }
+    Object.assign(h,patch);
   }else{
-    m.habits.push({id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq,active:true});
+    const nh={id:uid(),name,icon,points,freq,days,goalDays:goalDays||0,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget,prereq,active:true};
+    if(freq==='ebbinghaus'){nh.days=[1,2,3,4,5,6,7];nh.targetTimes=1;nh.trackTime=false;nh.pomodoro=0;nh.prereq='';nh.goalDays=0;nh.totalTargetTimes=0;nh.ebbStage=0;nh.ebbNext=null}
+    m.habits.push(nh);
   }
   saveData();closeModal();render();
 }
@@ -2046,21 +2185,23 @@ function openTemplateEditor(id){
         <input type="number" id="tPoints" value="${t?t.points:2}" min="-20" max="10" step="1" oninput="syncTemplateTimes()">
         <div style="font-size:11px;color:var(--text-2);margin-top:4px">负数为惩罚任务（如 -2），未完成自动扣分</div></div>
     </div>
-    <div class="form-group"><label>频率</label><select id="tFreq">
+    <div class="form-group"><label>频率</label><select id="tFreq" onchange="syncTemplateFreqFields()">
       <option value="daily" ${(!t||t.freq==='daily')?'selected':''}>每日</option>
       <option value="once" ${t&&t.freq==='once'?'selected':''}>一次性</option>
-    </select></div>
-    <div class="form-group"><label>执行日期</label><div>${dayCk}</div></div>
-    <div class="form-group"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
+      <option value="ebbinghaus" ${t&&t.freq==='ebbinghaus'?'selected':''}>艾宾浩斯复习（1/2/4/7/15/30 天）</option>
+    </select>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="tFreqHint" ${t&&t.freq==='ebbinghaus'?'':'display:none'}>记忆类任务专属：首学后按遗忘曲线间隔到期才出现复习打卡，共 7 次，全部完成即「已记住」</div></div>
+    <div class="form-group" id="tDaysGroup"><label>执行日期</label><div>${dayCk}</div></div>
+    <div class="form-group" id="tTimesGroup"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
       <input type="number" id="tTimes" value="${t&&t.targetTimes?t.targetTimes:1}" min="1" max="20" step="1" ${t&&t.points<0?'disabled':''}>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px" id="tTimesHint">${t&&t.points<0?'惩罚任务固定为 1 次':'大于 1 时每天需打卡多次，每次得分'}</div></div>
-    <div class="form-group"><label>目标天数（选填，如 100 天挑战）</label>
+    <div class="form-group" id="tGoalGroup"><label>目标天数（选填，如 100 天挑战）</label>
       <input type="number" id="tGoal" value="${t&&t.goalDays?t.goalDays:''}" min="0" max="3650" placeholder="不填则无目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">设置后每天打卡会显示进度，如「第 5 / 100 天」</div></div>
-    <div class="form-group"><label>累计目标次数（选填，如刷完一套 36 本）</label>
+    <div class="form-group" id="tTotalGroup"><label>累计目标次数（选填，如刷完一套 36 本）</label>
       <input type="number" id="tTotal" value="${t&&t.totalTargetTimes?t.totalTargetTimes:''}" min="0" max="9999" placeholder="不填则无累计目标">
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">跨天累计打卡总数，如分级读物刷完一级填 36；打卡页显示「📚 累计 18/36 次」，刷完自动庆祝</div></div>
-    <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
+    <div class="form-group" id="tTrackGroup"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-1)">
       <input type="checkbox" id="tTrack" ${t&&t.trackTime?'checked':''} ${t&&t.points<0?'disabled':''} onchange="syncTemplatePomoVis()" style="width:16px;height:16px"> 记录耗时（开始 / 结束计时，自动算用时）</label>
       <div style="font-size:11px;color:var(--text-2);margin-top:4px">开启后打卡页显示「▶ 开始 / ⏹ 完成」，完成后显示今日用时</div></div>
     <div class="form-group" id="tPomoWrap" style="${(t&&t.trackTime)?'':'display:none'}">
@@ -2074,6 +2215,21 @@ function openTemplateEditor(id){
     <button class="btn-primary" onclick="saveTemplate('${t?t.id:''}')">保存</button>
     ${t?`<button class="btn-danger" onclick="deleteTemplate('${t.id}')">删除模板</button>`:''}
   `);
+  syncTemplateFreqFields();
+}
+// 模板频率切换联动：艾宾浩斯隐藏不适用字段
+function syncTemplateFreqFields(){
+  const sel=document.getElementById('tFreq');
+  if(!sel)return;
+  const ebb=sel.value==='ebbinghaus';
+  ['tDaysGroup','tTimesGroup','tGoalGroup','tTotalGroup','tTrackGroup'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=ebb?'none':'';
+  });
+  const pomoWrap=document.getElementById('tPomoWrap');
+  if(pomoWrap&&ebb)pomoWrap.style.display='none';
+  const hintEl=document.getElementById('tFreqHint');
+  if(hintEl)hintEl.style.display=ebb?'':'none';
 }
 function saveTemplate(id){
   const name=document.getElementById('tName').value.trim();
@@ -2094,9 +2250,13 @@ function saveTemplate(id){
   document.querySelectorAll('[data-tday]').forEach(cb=>{if(cb.checked)days.push(parseInt(cb.dataset.tday))});
   if(id){
     const t=state.habitTemplates.find(x=>x.id===id);
-    Object.assign(t,{name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget});
+    const patch={name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget};
+    if(freq==='ebbinghaus')Object.assign(patch,{days:[1,2,3,4,5,6,7],targetTimes:1,trackTime:false,pomodoro:0,goalDays:0,totalTargetTimes:0});
+    Object.assign(t,patch);
   }else{
-    state.habitTemplates.push({id:uid(),name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget});
+    const nt={id:uid(),name,icon,points,freq,days,goalDays,totalTargetTimes,trackTime,pomodoro,targetTimes:finalTarget};
+    if(freq==='ebbinghaus'){nt.days=[1,2,3,4,5,6,7];nt.targetTimes=1;nt.trackTime=false;nt.pomodoro=0;nt.goalDays=0;nt.totalTargetTimes=0}
+    state.habitTemplates.push(nt);
   }
   saveData();closeModal();render();
 }
@@ -2162,7 +2322,9 @@ function assignTemplate(id){
     showToast('「'+m.name+'」已有任务「'+t.name+'」，请勿重复下发','⚠️');
     return;
   }
-  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,templateId:t.id,active:true});
+  const nh={id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,templateId:t.id,active:true};
+  if(t.freq==='ebbinghaus'){nh.ebbStage=0;nh.ebbNext=null} // 下发的记忆任务从新学开始
+  m.habits.push(nh);
   saveData();closeModal();render();
   showToast('已下发给 '+m.name,'📨');
 }
