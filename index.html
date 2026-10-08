@@ -2359,6 +2359,7 @@ function showStorageDetail(){
   openModal(html);
 }
 // ======================== 数据备份与恢复 ========================
+function isWeChat(){return /MicroMessenger/i.test(navigator.userAgent)}
 function exportData(){
   if(!state.members||state.members.length===0){showToast('暂无数据可导出','❌');return}
   const backup={
@@ -2367,13 +2368,43 @@ function exportData(){
     exportedAt:nowStr(),
     data:state
   };
-  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const text=JSON.stringify(backup,null,2);
+  // 微信内置浏览器不支持 a[download] 保存文件：降级为复制备份文本 / 提示用浏览器打开
+  if(isWeChat()){
+    window._backupText=text;
+    openModal(`<h3>导出备份</h3>
+      <button class="close-btn" onclick="closeModal()">×</button>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">微信内无法直接保存文件，请用以下方式备份：</p>
+      <div class="form-group"><label>方式一：复制完整备份</label>
+        <p style="font-size:12px;color:var(--text-2);margin-bottom:8px">备份约 ${(text.length/1024).toFixed(1)} KB。复制后新建备忘录或微信「文件传输助手」文本消息粘贴保存即可。</p>
+        <button class="btn-primary" onclick="copyBackupText(this)">📋 复制完整备份文本</button></div>
+      <div class="form-group"><label>方式二：浏览器打开后导出</label>
+        <p style="font-size:12px;color:var(--text-2)">点微信右上角「⋯」→「打开浏览器」，再进入 管理设置 → 数据与存储 → 导出备份，即可正常保存文件。</p></div>
+    `);
+    return;
+  }
+  const blob=new Blob([text],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='习惯养成备份_'+todayStr()+'.json';
   document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100);
   showToast('备份文件已导出','📦');
+}
+function copyBackupText(btn){
+  const text=window._backupText||'';
+  const fallback=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    let ok=false;
+    try{ok=document.execCommand('copy')}catch(e){}
+    ta.remove();
+    showToast(ok?'备份文本已复制，请粘贴保存':'复制失败，请手动选择文本复制','📋');
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>showToast('备份文本已复制，请粘贴保存','📋')).catch(fallback);
+  }else fallback();
 }
 function handleImportFile(input){
   const file=input.files&&input.files[0];
