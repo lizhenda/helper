@@ -2379,8 +2379,8 @@ function exportData(){
       <div class="form-group" style="margin-bottom:12px">
         <button class="btn-primary" onclick="copyBackupText()">📋 一键复制备份文本</button>
       </div>
-      <div class="form-group"><label>或手动选择复制</label>
-        <textarea id="backupTextarea" style="width:100%;height:180px;font-size:11px;font-family:monospace;resize:vertical;white-space:pre-wrap;word-break:break-all" readonly onclick="this.select()">${text.replace(/</g,'&lt;')}</textarea></div>
+      <div class="form-group"><label>或手动选择复制（长按文本 → 全选 → 复制）</label>
+        <textarea id="backupTextarea" style="width:100%;height:200px;font-size:11px;font-family:monospace;resize:vertical;white-space:pre;overflow:auto;-webkit-user-select:text;user-select:text" readonly onclick="this.select();this.setSelectionRange(0,this.value.length)">${text.replace(/</g,'&lt;')}</textarea></div>
     `);
     return;
   }
@@ -2392,20 +2392,33 @@ function exportData(){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100);
   showToast('备份文件已导出','📦');
 }
-function copyBackupText(btn){
-  const text=window._backupText||'';
-  const fallback=()=>{
-    const ta=document.createElement('textarea');
-    ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
-    document.body.appendChild(ta);ta.select();
+function copyBackupText(){
+  const ta=document.getElementById('backupTextarea');
+  const text=window._backupText||(ta?ta.value:'');
+  if(!text){showToast('无备份内容','❌');return}
+  // 优先使用弹窗中可见的 textarea 执行 execCommand('copy')，
+  // 而非创建隐藏 textarea（微信 WebView 对隐藏元素 select() 可能截断）；
+  // navigator.clipboard API 在某些微信版本静默截断，不作首选
+  const doExec=()=>{
+    if(!ta){showToast('请手动长按下方文本框选择复制','📋');return}
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0,ta.value.length);
     let ok=false;
     try{ok=document.execCommand('copy')}catch(e){}
-    ta.remove();
-    showToast(ok?'备份文本已复制，请粘贴保存':'复制失败，请手动选择文本复制','📋');
+    if(ok){
+      showToast('已复制！请粘贴到微信「文件传输助手」保存','📋');
+      ta.blur(); // 取消选中方便用户操作
+    }else{
+      showToast('复制失败，请长按下方文本框手动选择复制','📋');
+    }
   };
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(()=>showToast('备份文本已复制，请粘贴保存','📋')).catch(fallback);
-  }else fallback();
+  // iOS 非微信优先 clipboard API（execCommand 在 Safari 可能被禁）
+  if(navigator.clipboard&&navigator.clipboard.writeText&&!isWeChat()){
+    navigator.clipboard.writeText(text).then(
+      ()=>showToast('已复制！请粘贴到微信「文件传输助手」保存','📋')
+    ).catch(doExec);
+  }else{doExec()}
 }
 function handleImportFile(input){
   const file=input.files&&input.files[0];
