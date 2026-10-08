@@ -2138,19 +2138,24 @@ function openTemplateAssign(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const memberOpts=state.members.map(m=>{
     const has=memberHasTemplate(m,t);
-    return `<option value="${m.id}">${m.avatar} ${m.name}${has?'（已有此任务）':''}</option>`;
+    // 已有此任务的成员直接禁选（不可选中），从选择阶段杜绝重复下发
+    return `<option value="${m.id}" ${has?'disabled':''}>${m.avatar} ${m.name}${has?'（已有此任务，不可重复下发）':''}</option>`;
   }).join('');
+  // 默认选中第一个「未拥有」的成员，避免默认停在禁选项上
+  const firstAvailable=state.members.find(m=>!memberHasTemplate(m,t));
   openModal(`<h3>下发模板任务</h3>
     <button class="close-btn" onclick="closeModal()">×</button>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">将「${t.name}」下发给成员，该成员的习惯列表将新增此任务。已有此任务的成员会标注「已有」，重复下发会被拦截。</p>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">将「${t.name}」下发给成员，该成员的习惯列表将新增此任务。已有此任务的成员不可选。</p>
     <div class="form-group"><label>选择成员</label>
       <select id="assignMember">${memberOpts}</select></div>
     <button class="btn-primary" onclick="assignTemplate('${id}')">下发</button>
   `);
+  if(firstAvailable)document.getElementById('assignMember').value=firstAvailable.id;
 }
 function assignTemplate(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const mid=document.getElementById('assignMember').value;
+  if(!mid){showToast('所有成员均已有此任务，无需下发','ℹ️');return}
   const m=state.members.find(x=>x.id===mid);if(!m)return;
   // 重复下发拦截：已有该模板下发的任务或同名任务
   if(memberHasTemplate(m,t)){
