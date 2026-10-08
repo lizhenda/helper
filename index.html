@@ -2369,17 +2369,18 @@ function exportData(){
     data:state
   };
   const text=JSON.stringify(backup,null,2);
-  // 微信内置浏览器不支持 a[download] 保存文件：降级为复制备份文本 / 提示用浏览器打开
+  // 微信内置浏览器不支持 a[download] 保存文件，且微信与系统浏览器 localStorage 隔离、
+  // 无法跨浏览器读取数据：唯一可行方案是复制完整备份文本，粘贴到备忘录/文件传输助手保存
   if(isWeChat()){
     window._backupText=text;
     openModal(`<h3>导出备份</h3>
       <button class="close-btn" onclick="closeModal()">×</button>
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">微信内无法直接保存文件，请用以下方式备份：</p>
-      <div class="form-group"><label>方式一：复制完整备份</label>
-        <p style="font-size:12px;color:var(--text-2);margin-bottom:8px">备份约 ${(text.length/1024).toFixed(1)} KB。复制后新建备忘录或微信「文件传输助手」文本消息粘贴保存即可。</p>
-        <button class="btn-primary" onclick="copyBackupText(this)">📋 复制完整备份文本</button></div>
-      <div class="form-group"><label>方式二：浏览器打开后导出</label>
-        <p style="font-size:12px;color:var(--text-2)">点微信右上角「⋯」→「打开浏览器」，再进入 管理设置 → 数据与存储 → 导出备份，即可正常保存文件。</p></div>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">微信内无法直接保存文件，请复制以下完整备份文本，粘贴到微信「文件传输助手」或备忘录中保存（约 ${(text.length/1024).toFixed(1)} KB）。</p>
+      <div class="form-group" style="margin-bottom:12px">
+        <button class="btn-primary" onclick="copyBackupText()">📋 一键复制备份文本</button>
+      </div>
+      <div class="form-group"><label>或手动选择复制</label>
+        <textarea id="backupTextarea" style="width:100%;height:180px;font-size:11px;font-family:monospace;resize:vertical;white-space:pre-wrap;word-break:break-all" readonly onclick="this.select()">${text.replace(/</g,'&lt;')}</textarea></div>
     `);
     return;
   }
