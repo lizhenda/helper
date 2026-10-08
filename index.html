@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>习惯养成</title>
+<meta name="theme-color" content="#4A90D9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="习惯养成">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <style>
 :root{
   --blue:#4A90D9;--blue-lt:#E8F2FC;--blue-dk:#3A7BC8;
@@ -2504,6 +2512,11 @@ initState();
 settlePunishments();  // 结算昨日未做到的惩罚任务（自动扣分）
 render();
 applyStorageBanner(); // 存储不可用时显示警示横幅
+
+// PWA Service Worker — 注册离线缓存
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
 </script>
 </body>
 </html>
