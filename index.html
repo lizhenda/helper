@@ -1322,9 +1322,10 @@ function renderAdmin(el){
   // 数据备份与恢复
   html+='<div class="approval-item"><div class="a-ic" style="font-size:24px">📦</div>'
     +'<div class="a-body"><div class="a-nm">数据备份与恢复</div>'
-    +'<div class="a-meta">导出备份文件到电脑，浏览器数据丢失时可导入恢复</div></div>'
+    +'<div class="a-meta">导出备份文件到电脑，浏览器数据丢失时可导入恢复；微信内导出的文本也可粘贴导入</div></div>'
     +'<div class="a-btns"><button class="a-btn approve" onclick="exportData()">导出备份</button>'
-    +'<button class="a-btn approve" onclick="document.getElementById(\'importFile\').click()">导入恢复</button></div></div>'
+    +'<button class="a-btn approve" onclick="document.getElementById(\'importFile\').click()">导入文件</button>'
+    +'<button class="a-btn approve" onclick="openImportText()">粘贴导入</button></div></div>'
     +'<input type="file" id="importFile" accept=".json,application/json" style="display:none">';
 
   // 安全设置
@@ -2375,7 +2376,8 @@ function exportData(){
     window._backupText=text;
     openModal(`<h3>导出备份</h3>
       <button class="close-btn" onclick="closeModal()">×</button>
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">微信内无法直接保存文件，请复制以下完整备份文本，粘贴到微信「文件传输助手」或备忘录中保存（约 ${(text.length/1024).toFixed(1)} KB）。</p>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">微信内无法直接保存文件，请复制以下完整备份文本，粘贴到微信「文件传输助手」或备忘录中保存（约 ${(text.length/1024).toFixed(1)} KB）。</p>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:10px">想保存成 .json 文件？在电脑/其他浏览器打开本页面 → 管理设置 → 粘贴文本导入 → 恢复后再「导出备份」即可。</p>
       <div class="form-group" style="margin-bottom:12px">
         <button class="btn-primary" onclick="copyBackupText()">📋 一键复制备份文本</button>
       </div>
@@ -2428,25 +2430,45 @@ function handleImportFile(input){
     let backup;
     try{backup=JSON.parse(e.target.result)}
     catch(err){showToast('文件格式错误，导入失败','❌');return}
-    if(!backup||backup.app!=='habit-tracker'||!backup.data||!Array.isArray(backup.data.members)){
-      showToast('不是有效的备份文件','❌');return;
-    }
-    const d=backup.data;
-    const memberNames=d.members.map(m=>m.name).join('、');
-    const totalHabits=d.members.reduce((s,m)=>s+(m.habits?m.habits.length:0),0);
-    // 二次确认
-    openModal('<h3>导入备份确认</h3><button class="close-btn" onclick="closeModal()">×</button>'
-      +'<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">导入后<b style="color:#c33">将覆盖当前全部数据</b>（成员、习惯、积分、打卡记录），请确认备份文件无误。</div>'
-      +'<div class="form-group"><label>备份时间</label><div>'+(backup.exportedAt||'—')+'</div></div>'
-      +'<div class="form-group"><label>成员</label><div>'+memberNames+'（共 '+d.members.length+' 人）</div></div>'
-      +'<div class="form-group"><label>任务数</label><div>共 '+totalHabits+' 个习惯任务</div></div>'
-      +'<button class="btn-primary" onclick="confirmImport()">确认导入</button>'
-      +'<button class="btn-danger" onclick="closeModal()">取消</button>');
-    window.__pendingImport=d;
+    showImportConfirm(backup);
   };
   reader.onerror=()=>{showToast('读取文件失败','❌')};
   reader.readAsText(file,'utf-8');
   input.value=''; // 允许重复选择同一文件
+}
+// 粘贴文本导入：微信内无法直接下载文件，复制导出文本后可粘贴恢复
+function openImportText(){
+  openModal('<h3>粘贴备份文本</h3><button class="close-btn" onclick="closeModal()">×</button>'
+    +'<div style="font-size:13px;color:var(--text-2);margin-bottom:12px">将「导出备份 → 一键复制」得到的完整 JSON 文本粘贴到下方，用于恢复数据（适合微信内备份的文本跨浏览器恢复）。</div>'
+    +'<div class="form-group"><textarea id="importTextarea" placeholder="在此粘贴备份 JSON 文本…" style="width:100%;height:180px;font-size:11px;font-family:monospace;resize:vertical;white-space:pre;overflow:auto;-webkit-user-select:text;user-select:text"></textarea></div>'
+    +'<button class="btn-primary" onclick="parseBackupText()">下一步</button>'
+    +'<button class="btn-danger" onclick="closeModal()">取消</button>');
+}
+function parseBackupText(){
+  const ta=document.getElementById('importTextarea');
+  const text=ta?ta.value.trim():'';
+  if(!text){showToast('请先粘贴备份文本','❌');return}
+  let backup;
+  try{backup=JSON.parse(text)}
+  catch(err){showToast('文本格式错误，导入失败','❌');return}
+  showImportConfirm(backup);
+}
+function showImportConfirm(backup){
+  if(!backup||backup.app!=='habit-tracker'||!backup.data||!Array.isArray(backup.data.members)){
+    showToast('不是有效的备份，导入失败','❌');return;
+  }
+  const d=backup.data;
+  const memberNames=d.members.map(m=>m.name).join('、');
+  const totalHabits=d.members.reduce((s,m)=>s+(m.habits?m.habits.length:0),0);
+  // 二次确认
+  openModal('<h3>导入备份确认</h3><button class="close-btn" onclick="closeModal()">×</button>'
+    +'<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">导入后<b style="color:#c33">将覆盖当前全部数据</b>（成员、习惯、积分、打卡记录），请确认备份无误。</div>'
+    +'<div class="form-group"><label>备份时间</label><div>'+(backup.exportedAt||'—')+'</div></div>'
+    +'<div class="form-group"><label>成员</label><div>'+memberNames+'（共 '+d.members.length+' 人）</div></div>'
+    +'<div class="form-group"><label>任务数</label><div>共 '+totalHabits+' 个习惯任务</div></div>'
+    +'<button class="btn-primary" onclick="confirmImport()">确认导入</button>'
+    +'<button class="btn-danger" onclick="closeModal()">取消</button>');
+  window.__pendingImport=d;
 }
 function confirmImport(){
   const d=window.__pendingImport;
