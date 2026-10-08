@@ -98,6 +98,7 @@ helper/
 
 | 版本 | 主要内容 |
 |------|---------|
+| v5.2 | 触控滚动优化：内容不足时禁止 overscroll 回弹、.app 撑满视口，内容少时不再可拖动 |
 | v5.1 | GitHub Pages 子路径部署修复（manifest/SW 改绝对路径 /helper/，修复安卓不显示安装）；状态栏主题色跟随成员实时变化 |
 | v5.0 | PWA 支持：添加 manifest.json + Service Worker 离线缓存，可「添加到主屏幕」standalone 全屏运行 |
 | v4.5 | 微信导出备份兼容：微信内无法直接下载文件，降级为复制备份文本/粘贴导入闭环 |

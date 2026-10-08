@@ -24,10 +24,11 @@
 [data-mode="teen"]{--accent:#4A90D9;--accent-lt:#E8F2FC;--accent-dk:#3A7BC8}
 [data-mode="simple"]{--accent:#5B6B7D;--accent-lt:#EEF1F4;--accent-dk:#4A5A6D;--radius:8px}
 *{margin:0;padding:0;box-sizing:border-box}
+html{overscroll-behavior-y:none}
 body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);
-  transition:background .3s;min-height:100vh}
+  transition:background .3s;min-height:100vh;overscroll-behavior-y:none}
 /* layout */
-.app{max-width:720px;margin:0 auto;padding:16px 16px 90px}
+.app{max-width:720px;margin:0 auto;padding:16px 16px 90px;min-height:100vh}
 /* header */
 .header{display:flex;align-items:center;justify-content:space-between;padding:8px 0 16px}
 .header h1{font-size:20px;color:var(--accent);font-weight:700}
