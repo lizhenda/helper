@@ -2130,12 +2130,19 @@ function syncTemplateTimes(){
   if(pomoWrap)pomoWrap.style.display=(!punish&&trackCb&&trackCb.checked)?'':'none';
   if(hint)hint.innerHTML=punish?'惩罚任务固定为 1 次':'大于 1 时每天需打卡多次，每次得分';
 }
+// 判断成员是否已拥有某模板对应的任务（下发的模板任务带 templateId；或存在同名任务）
+function memberHasTemplate(m,t){
+  return m.habits.some(h=>(t.id&&h.templateId===t.id)||h.name===t.name);
+}
 function openTemplateAssign(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
-  const memberOpts=state.members.map(m=>`<option value="${m.id}">${m.avatar} ${m.name}</option>`).join('');
+  const memberOpts=state.members.map(m=>{
+    const has=memberHasTemplate(m,t);
+    return `<option value="${m.id}">${m.avatar} ${m.name}${has?'（已有此任务）':''}</option>`;
+  }).join('');
   openModal(`<h3>下发模板任务</h3>
     <button class="close-btn" onclick="closeModal()">×</button>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">将「${t.name}」下发给成员，该成员的习惯列表将新增此任务。</p>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:14px">将「${t.name}」下发给成员，该成员的习惯列表将新增此任务。已有此任务的成员会标注「已有」，重复下发会被拦截。</p>
     <div class="form-group"><label>选择成员</label>
       <select id="assignMember">${memberOpts}</select></div>
     <button class="btn-primary" onclick="assignTemplate('${id}')">下发</button>
@@ -2145,7 +2152,12 @@ function assignTemplate(id){
   const t=state.habitTemplates.find(x=>x.id===id);if(!t)return;
   const mid=document.getElementById('assignMember').value;
   const m=state.members.find(x=>x.id===mid);if(!m)return;
-  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,active:true});
+  // 重复下发拦截：已有该模板下发的任务或同名任务
+  if(memberHasTemplate(m,t)){
+    showToast('「'+m.name+'」已有任务「'+t.name+'」，请勿重复下发','⚠️');
+    return;
+  }
+  m.habits.push({id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,templateId:t.id,active:true});
   saveData();closeModal();render();
   showToast('已下发给 '+m.name,'📨');
 }
