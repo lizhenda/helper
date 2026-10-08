@@ -1,6 +1,6 @@
 // Service Worker — 离线缓存（首次加载后可断网使用）
 const CACHE='habit-tracker-v5';
-const ASSETS=['./','./index.html','./manifest.json','./icon.svg','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
+const ASSETS=['/helper/','/helper/index.html','/helper/manifest.json','/helper/icon.svg','/helper/icon-192.png','/helper/icon-512.png','/helper/icon-maskable-512.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
@@ -16,7 +16,7 @@ self.addEventListener('fetch',e=>{
         const copy=resp.clone();
         caches.open(CACHE).then(c=>c.put(e.request,copy));
         return resp;
-      }).catch(()=>caches.match('./index.html'));
+      }).catch(()=>caches.match('/helper/index.html'));
     })
   );
 });

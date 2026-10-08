@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="习惯养成">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/helper/manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <style>
@@ -672,6 +672,11 @@ function applyMode(){
     app.style.removeProperty('--accent-dk');
     app.style.removeProperty('--shadow');
   }
+  // 状态栏/浏览器主题色跟随当前主色（PWA 沉浸式，安卓状态栏即时生效）
+  const themeColors={child:'#FF6B9D',teen:'#4A90D9',simple:'#5B6B7D'};
+  const themeColor=(m&&m.color)?m.color:(themeColors[mode]||'#4A90D9');
+  const themeMeta=document.querySelector('meta[name="theme-color"]');
+  if(themeMeta)themeMeta.setAttribute('content',themeColor);
 }
 // 混合两种 hex 颜色：ratio 为 mix 色占比（0~1）
 function mixColor(hex,mixHex,ratio){
@@ -2515,7 +2520,7 @@ applyStorageBanner(); // 存储不可用时显示警示横幅
 
 // PWA Service Worker — 注册离线缓存
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(function(){});
+  navigator.serviceWorker.register('/helper/sw.js').catch(function(){});
 }
 </script>
 </body>
