@@ -92,6 +92,27 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
 .pomo-clock{font-size:26px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;
   letter-spacing:1px;line-height:1.2;margin:2px 0}
 [data-mode="child"] .pomo-clock{font-size:32px}
+/* 独立番茄钟页 */
+.pomo-page{padding:36px 20px;text-align:center}
+.pomo-clock-big{font-size:64px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;
+  letter-spacing:2px;line-height:1.1;margin:14px 0 6px}
+[data-mode="child"] .pomo-clock-big{font-size:80px}
+.pomo-state{font-size:15px;color:var(--text-2);margin-bottom:26px}
+.pomo-state.running{color:var(--accent);font-weight:600}
+.pomo-len-row{display:flex;gap:10px;justify-content:center;margin-bottom:26px}
+.pomo-len-pill{padding:8px 18px;border-radius:20px;border:2px solid var(--accent);background:#fff;
+  color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.pomo-len-pill.active{background:var(--accent);color:#fff}
+.pomo-len-pill:disabled{border-color:#ddd;color:#aaa;background:#f5f5f5;cursor:not-allowed}
+.pomo-big-btn{display:block;width:100%;max-width:280px;margin:8px auto;padding:14px;border:none;
+  border-radius:14px;background:var(--accent);color:#fff;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit}
+.pomo-big-btn:active{opacity:.85}
+.pomo-big-btn.ghost{background:var(--accent-lt);color:var(--accent)}
+.pomo-big-btn.plain{background:#fff;color:var(--text-2);border:1.5px solid #e5e5e5;font-weight:500}
+.pomo-stats{display:flex;gap:12px;margin-top:32px}
+.pomo-stat-card{flex:1;background:var(--card);border-radius:16px;padding:16px 10px;box-shadow:var(--shadow)}
+.pomo-stat-card .num{font-size:22px;font-weight:700;color:var(--accent)}
+.pomo-stat-card .lbl{font-size:12px;color:var(--text-2);margin-top:4px}
 .habit-item.done .habit-check .ck{opacity:1}
 [data-mode="child"] .habit-item{padding:16px}
 [data-mode="child"] .habit-icon{width:56px;height:56px;font-size:30px;border-radius:16px}
@@ -300,6 +321,9 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
   <button class="tab active" data-tab="habits" onclick="switchTab('habits')">
     <span class="tab-ic">📋</span><span class="tab-lb">打卡</span>
   </button>
+  <button class="tab" data-tab="pomodoro" onclick="switchTab('pomodoro')">
+    <span class="tab-ic">🍅</span><span class="tab-lb">番茄</span>
+  </button>
   <button class="tab" data-tab="mine" onclick="switchTab('mine')">
     <span class="tab-ic">👤</span><span class="tab-lb">我的</span>
   </button>
@@ -443,6 +467,9 @@ function initState(){
     if(!state.habitTemplates){
       state.habitTemplates=DEFAULT_TEMPLATES.map(t=>({...t}));
     }
+    if(!state.pomo){ // 独立番茄钟：会话/时长/统计（工具属性，不按成员分）
+      state.pomo={len:25,sess:null,todayCount:0,todayFocusMs:0,totalPomos:0,todayDate:todayStr()};
+    }
     if(!state.adminPwd)state.adminPwd='1234';
     state.adminUnlocked=false; // 管理解锁仅对当前会话有效，刷新页面后需重新输入口令
     if(state.mineView==='admin')state.mineView='main'; // 未解锁时不允许停留在管理页
@@ -499,7 +526,8 @@ function seedDefaultData(){
       {id:'b5',name:'30天冠军',icon:'💎',desc:'连续打卡30天',days:30}
     ],
     currentMemberId:'m1',currentTab:'habits',mineView:'main',adminUnlocked:false,adminPwd:'1234',
-    habitTemplates:DEFAULT_TEMPLATES.map(t=>({...t}))
+    habitTemplates:DEFAULT_TEMPLATES.map(t=>({...t})),
+    pomo:{len:25,sess:null,todayCount:0,todayFocusMs:0,totalPomos:0,todayDate:todayStr()}
   };
   saveData();
 }
@@ -661,6 +689,7 @@ function renderContent(){
   if(state.currentTab==='mine'&&state.mineView==='admin'){renderAdmin(el);return}
   const m=getMember();if(!m){el.innerHTML='<div class="empty"><div class="em-ic">👤</div>请先添加成员</div>';return}
   if(state.currentTab==='habits')renderHabits(el,m);
+  else if(state.currentTab==='pomodoro')renderPomo(el);
   else if(state.currentTab==='mine'){
     if(state.mineView==='rewards')renderRewards(el,m);
     else if(state.mineView==='badges')renderBadges(el,m);
@@ -812,6 +841,141 @@ function isLockedHabit(m,h){
 }
 function findHabit(m,id){
   return (m&&m.habits)?m.habits.find(x=>x.id===id):null;
+}
+
+// ---- Pomo Tab (独立番茄钟) ----
+// 渲染前结算：番茄到点转休息、休息到点回空闲（基于时间戳，页面重开后也能补结算）
+function pomoSettle(){
+  const p=state.pomo;if(!p||!p.sess)return false;
+  const now=Date.now();
+  if(p.sess.type==='pomo'&&now>=p.sess.s+p.len*60000){
+    p.todayCount++;p.totalPomos++;
+    p.todayFocusMs+=p.len*60000;
+    const restMin=p.len===45?10:5;
+    p.sess={s:now,type:'rest',until:now+restMin*60000};
+    saveData();
+    playChime();
+    showToast('🍅 番茄完成！休息 '+restMin+' 分钟','🍅');
+    const m=getMember();
+    if(m&&m.mode==='child')speak('番茄完成啦，休息一下');
+    return true;
+  }
+  if(p.sess.type==='rest'&&now>=p.sess.until){
+    p.sess=null;
+    saveData();
+    playChime();
+    showToast('休息结束，随时可以继续专注','💪');
+    return true;
+  }
+  return false;
+}
+let pomoClockTimer=null;
+function ensurePomoClockTimer(){
+  if(state.pomo&&state.pomo.sess&&!pomoClockTimer)pomoClockTimer=setInterval(pomoClockTick,1000);
+}
+function pomoClockTick(){
+  const p=state.pomo;
+  if(!p||!p.sess){if(pomoClockTimer){clearInterval(pomoClockTimer);pomoClockTimer=null}return}
+  if(pomoSettle()){render();return} // 状态推进后重渲染（ensurePomoClockTimer 由 renderPomo 触发）
+  const el=document.getElementById('pomoClockBig');
+  if(el){
+    const now=Date.now();
+    if(p.sess.type==='pomo')el.textContent='🍅 '+fmtClock(p.sess.s+p.len*60000-now);
+    else el.textContent='☕ '+fmtClock(p.sess.until-now);
+  }
+}
+function pomoSetLen(min){
+  const p=state.pomo;
+  if(p.sess)return; // 进行中不可改时长
+  p.len=min;saveData();render();
+}
+function pomoStart(){
+  const p=state.pomo;
+  if(p.sess)return;
+  ensureAudio();
+  p.sess={s:Date.now(),type:'pomo'};
+  saveData();render();
+  showToast('🍅 开始专注，'+p.len+' 分钟','▶️');
+  const m=getMember();
+  if(m&&m.mode==='child')speak('开始专注啦，加油');
+}
+// 提前结束：专注时长计入今日统计，但不计番茄数（番茄数仅自然到点计）
+function pomoFinishEarly(){
+  const p=state.pomo;
+  if(!p.sess||p.sess.type!=='pomo')return;
+  const focusMs=Date.now()-p.sess.s;
+  p.todayFocusMs+=focusMs;
+  p.sess=null;
+  saveData();render();
+  showToast('本次专注 '+fmtDur(focusMs),'⏹');
+}
+function pomoSkipRest(){
+  const p=state.pomo;
+  if(!p.sess||p.sess.type!=='rest')return;
+  p.sess=null;
+  saveData();render();
+  showToast('已跳过休息','⏭️');
+}
+function pomoAbandon(){
+  const p=state.pomo;
+  if(!p.sess||p.sess.type!=='pomo')return;
+  openModal(`<h3>放弃本次专注？</h3>
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <p style="font-size:14px;color:var(--text-1);margin-bottom:6px">已专注的 ${fmtDur(Date.now()-p.sess.s)} 将不计入统计。</p>
+    <button class="btn-primary" onclick="doPomoAbandon()">确认放弃</button>
+    <button class="btn-danger" onclick="closeModal()">继续专注</button>
+  `);
+}
+function doPomoAbandon(){
+  state.pomo.sess=null;
+  saveData();closeModal();render();
+  showToast('已放弃本次专注','✕');
+}
+function renderPomo(el){
+  const p=state.pomo;
+  const today=todayStr();
+  if(p.todayDate!==today){p.todayDate=today;p.todayCount=0;p.todayFocusMs=0;saveData()} // 跨天重置今日统计
+  pomoSettle(); // 渲染前先结算到点会话
+  const now=Date.now();
+  let html='<div class="pomo-page">';
+  if(p.sess&&p.sess.type==='pomo'){
+    const remain=p.sess.s+p.len*60000-now;
+    html+=`<div class="pomo-clock-big" id="pomoClockBig">🍅 ${fmtClock(remain)}</div>
+      <div class="pomo-state running">🔴 专注中 · ${p.len} 分钟番茄</div>
+      <button class="pomo-big-btn" onclick="pomoFinishEarly()">⏹ 提前结束（计入专注时长）</button>
+      <button class="pomo-big-btn plain" onclick="pomoAbandon()">✕ 放弃本次</button>`;
+  }else if(p.sess&&p.sess.type==='rest'){
+    const remain=p.sess.until-now;
+    html+=`<div class="pomo-clock-big" id="pomoClockBig" style="color:var(--text-2)">☕ ${fmtClock(remain)}</div>
+      <div class="pomo-state">休息一下 · 今日已完成 ${p.todayCount} 个番茄</div>
+      <button class="pomo-big-btn ghost" onclick="startNextFocus()">🍅 跳过休息，继续专注</button>`;
+  }else{
+    const lens=[15,25,45];
+    const pills=lens.map(l=>`<button class="pomo-len-pill${p.len===l?' active':''}" onclick="pomoSetLen(${l})" ${p.sess?'disabled':''}>${l} 分钟</button>`).join('');
+    html+=`<div class="pomo-clock-big" id="pomoClockBig" style="color:var(--text-2)">🍅 ${String(p.len).padStart(2,'0')}:00</div>
+      <div class="pomo-state">选好时长，开始专注</div>
+      <div class="pomo-len-row">${pills}</div>
+      <button class="pomo-big-btn" onclick="pomoStart()">▶ 开始专注</button>`;
+  }
+  html+=`<div class="pomo-stats">
+    <div class="pomo-stat-card"><div class="num">🍅 ${p.todayCount}</div><div class="lbl">今日番茄</div></div>
+    <div class="pomo-stat-card"><div class="num">${p.todayFocusMs>0?fmtDur(p.todayFocusMs):'0分钟'}</div><div class="lbl">今日专注</div></div>
+    <div class="pomo-stat-card"><div class="num">🍅 ${p.totalPomos}</div><div class="lbl">历史累计</div></div>
+  </div></div>`;
+  el.innerHTML=html;
+  ensurePomoClockTimer();
+  if(p.sess&&!pomoClockTimer)pomoClockTimer=setInterval(pomoClockTick,1000);
+}
+// 休息中跳过休息继续专注（直接开始新番茄）
+function startNextFocus(){
+  const p=state.pomo;
+  if(!p.sess||p.sess.type!=='rest')return;
+  ensureAudio();
+  p.sess={s:Date.now(),type:'pomo'};
+  saveData();render();
+  showToast('继续专注，加油！','🍅');
+  const m=getMember();
+  if(m&&m.mode==='child')speak('继续加油');
 }
 
 // ---- Mine Tab (我的) ----
