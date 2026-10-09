@@ -82,6 +82,11 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg)
 .habit-item.punish-item.done .habit-name{text-decoration:line-through;color:var(--text-2)}
 .habit-item.expired-item{background:#FBF3F2}
 .habit-item.expired-item .habit-icon{filter:grayscale(.6);opacity:.7}
+/* 目标任务临近截止：整卡浅红 + 图标红底 + 红色进度条（剩余天数红色加粗） */
+.habit-item.goal-urgent{background:#FFF6F5}
+.habit-item.goal-urgent .habit-icon{background:#FDE3E0}
+.habit-item.goal-urgent .habit-goal .g-bar{background:#F8D7D3}
+.habit-item.goal-urgent .habit-goal .g-bar .g-fill{background:#e74c3c}
 .habit-goal{display:block;font-size:11px;color:var(--accent);font-weight:600;margin-top:4px}
 .habit-goal .g-bar{display:block;height:4px;background:var(--accent-lt);border-radius:2px;margin-top:4px;overflow:hidden}
 .habit-goal .g-bar .g-fill{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .4s}
@@ -901,12 +906,16 @@ function renderHabits(el,m){
       const done=cur>=target;
       const expired=isGoalExpired(h);
       const left=goalDaysLeft(h);
+      const warn=goalWarnDays(h);
+      const urgent=!done&&!expired&&warn>0&&left<=warn; // 临近截止：红色高亮倒计时
       const pct=Math.min(100,Math.round(cur/target*100));
       const stateHtml=done
         ?`<div class="habit-goal" style="color:var(--accent);font-weight:600">🎉 目标已达成（${cur}/${target} 次）</div>`
         :(expired
           ?`<div class="habit-goal" style="color:#e74c3c;font-weight:600">⏰ 已过截止日期（${h.deadlineDate}）· 完成 ${cur}/${target} 次</div>`
-          :`<div class="habit-goal" style="color:var(--accent);font-weight:600">${left===0?'⏰ 今天截止':(left<=3?'⏳ 仅剩 '+left+' 天':'📅 '+left+' 天后截止')}</div>`);
+          :(urgent
+            ?`<div class="habit-goal" style="color:#e74c3c;font-weight:700;font-size:13px">${left===0?'⏰ 今天截止，抓紧完成！':'🔴 仅剩 '+left+' 天'}</div>`
+            :`<div class="habit-goal" style="color:var(--accent);font-weight:600">${left===0?'⏰ 今天截止':'📅 '+left+' 天后截止'}</div>`));
       const barHtml=`<div class="habit-goal">${done?'🎉 已达成全部 '+target+' 次':'🎯 进度 '+cur+'/'+target+' 次'}
         <span class="g-bar"><span class="g-fill" style="width:${pct}%"></span></span></div>`;
       let btnHtml='';
@@ -921,9 +930,9 @@ function renderHabits(el,m){
       const ptsHtml=h.points<0
         ?`<span class="pts punish">${h.points}分 <span class="punish-tip">负分目标任务</span></span>`
         :`<span class="pts">+${h.points}分/次</span>`;
-      html+=`<div class="habit-item${done?' done':''}${expired&&!done?' expired-item':''}">
+      html+=`<div class="habit-item${done?' done':''}${expired&&!done?' expired-item':''}${urgent?' goal-urgent':''}">
         <div class="habit-icon">${h.icon}</div>
-        <div class="habit-body"><div class="habit-name">${h.name} <span class="pts" style="font-size:11px">· 截止 ${h.deadlineDate}</span></div>
+        <div class="habit-body"><div class="habit-name">${h.name}${urgent?` <span class="pts" style="color:#e74c3c;font-size:11px;font-weight:700">· 仅剩 ${left===0?'今天':left+' 天'}</span>`:` <span class="pts" style="font-size:11px">· 截止 ${h.deadlineDate}</span>`}</div>
           <div class="habit-meta">${ptsHtml}<span class="pts">· 不限每日</span></div>
           ${stateHtml}${barHtml}</div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${btnHtml}</div>
@@ -1315,7 +1324,7 @@ function renderAdmin(el){
   html+='<div class="menu-list" style="margin-bottom:12px">';
   state.members.forEach(m=>{
     const habitList=m.habits.map(h=>{
-      const freqTxt=h.freq==='ebbinghaus'?ebbStateTxt(h):(h.freq==='once'?'一次性':(h.freq==='deadline'?('🎯 截止'+(h.deadlineDate||'')+' · '+(isGoalDone(m,h)?'已达成':isGoalExpired(h)?'已过期':countHabitTimes(m,h)+'/'+(h.deadlineTimes||1)+'次')):((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日')));
+      const freqTxt=h.freq==='ebbinghaus'?ebbStateTxt(h):(h.freq==='once'?'一次性':(h.freq==='deadline'?goalAdminStateTxt(m,h):((h.days&&h.days.length<7)?'每周'+h.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日')));
       const timesTxt=(h.freq==='ebbinghaus'||h.freq==='deadline')?'':((h.targetTimes&&h.targetTimes>1)?' · 每日'+h.targetTimes+'次':'');
       const totalTxt=(h.totalTargetTimes>0)?' · 累计目标'+h.totalTargetTimes+'次':'';
       const trackTxt=h.trackTime?(' · 记录耗时'+(h.pomodoro?'🍅'+h.pomodoro:'')):'';
@@ -1345,7 +1354,7 @@ function renderAdmin(el){
   }else{
     html+='<div class="menu-list" style="margin-bottom:12px">';
     tpls.forEach(t=>{
-      const freqTxt=t.freq==='ebbinghaus'?'艾宾浩斯复习（1/2/4/7/15/30天）':(t.freq==='once'?'一次性':(t.freq==='deadline'?'🎯 目标任务 · 截止'+(t.deadlineDate||'')+' · '+(t.deadlineTimes||1)+'次':((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日')));
+      const freqTxt=t.freq==='ebbinghaus'?'艾宾浩斯复习（1/2/4/7/15/30天）':(t.freq==='once'?'一次性':(t.freq==='deadline'?'🎯 目标任务 · 截止'+(t.deadlineDate||'')+' · '+(t.deadlineTimes||1)+'次'+(goalWarnDays(t)>0?' · 剩余≤'+goalWarnDays(t)+'天红标':''):((t.days&&t.days.length<7)?'每周'+t.days.map(d=>['','一','二','三','四','五','六','日'][d]).join('·'):'每日')));
       const timesTxt=(t.freq==='ebbinghaus'||t.freq==='deadline')?'':((t.targetTimes&&t.targetTimes>1)?' · 每日'+t.targetTimes+'次':'');
       const totalTxt=(t.totalTargetTimes>0)?' · 累计目标'+t.totalTargetTimes+'次':'';
       const trackTxt=t.trackTime?(' · 记录耗时'+(t.pomodoro?'🍅'+t.pomodoro:'')):'';
@@ -1440,6 +1449,22 @@ function goalDaysLeft(h){
 }
 function isGoalDone(m,h){return countHabitTimes(m,h)>=(h.deadlineTimes||1)}
 function isGoalExpired(h){return goalDaysLeft(h)<0}
+// 临近截止红色提醒阈值（剩余 ≤N 天时红色展示倒计时）；老数据无字段默认 7，0=关闭红色提醒
+function goalWarnDays(h){return (h.deadlineWarn===undefined||h.deadlineWarn===null)?7:h.deadlineWarn}
+// 管理页目标任务状态文本（临近时剩余天数红色加粗）
+function goalAdminStateTxt(m,h){
+  const target=h.deadlineTimes||1;
+  const cur=countHabitTimes(m,h);
+  const base='🎯 截止'+(h.deadlineDate||'')+' · ';
+  if(isGoalDone(m,h))return base+'已达成';
+  if(isGoalExpired(h))return base+'已过期（'+cur+'/'+target+' 次）';
+  const left=goalDaysLeft(h);
+  const warn=goalWarnDays(h);
+  const leftTxt=(warn>0&&left<=warn)
+    ?'<span style="color:#e74c3c;font-weight:700">'+(left===0?'今天截止！':'仅剩 '+left+' 天')+'</span>'
+    :('剩 '+left+' 天');
+  return base+cur+'/'+target+' 次 · '+leftTxt;
+}
 // 目标任务打卡：任意天可打，一天可多次，每次得分；达标即庆祝
 function goalCheckin(habitId){
   const m=getMember();if(!m)return;
@@ -2136,7 +2161,12 @@ function openHabitEditor(memberId,id){
         <input type="date" id="hDeadlineDate" value="${h&&h.deadlineDate?h.deadlineDate:''}" style="flex:1">
         <input type="number" id="hDeadlineTimes" value="${h&&h.deadlineTimes?h.deadlineTimes:3}" min="1" max="999" step="1" placeholder="次数" style="width:90px">
       </div>
-      <div style="font-size:11px;color:var(--text-2);margin-top:4px">如「月考前进 50 道错题」：截止 2026-10-31，总次数 50（此前不限每日，任意天均可打卡，可一天多次）</div></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--text-1)">剩余</span>
+        <input type="number" id="hDeadlineWarn" value="${h&&h.deadlineWarn!==undefined&&h.deadlineWarn!==null?h.deadlineWarn:7}" min="0" max="365" step="1" style="width:60px">
+        <span style="font-size:13px;color:var(--text-1)">天内红色提醒（0 = 不提醒）</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">如「月考前刷 50 道错题」：截止 2026-10-31，总次数 50（不限每日，任意天均可打卡，可一天多次）；临近截止时卡片变红、剩余天数红色加粗展示</div></div>
     <div class="form-group" id="daysGroup"><label>执行日期</label><div>${dayCk}</div></div>
     <div class="form-group" id="timesGroup"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
       <input type="number" id="hTimes" value="${h&&h.targetTimes?h.targetTimes:1}" min="1" max="20" step="1" ${isPunish?'disabled':''}>
@@ -2233,11 +2263,13 @@ function saveHabit(memberId,id){
       // 目标任务：需截止日期与总次数；不适用字段强制清空
       const dlDate=document.getElementById('hDeadlineDate').value;
       const dlTimes=Math.max(1,parseInt(document.getElementById('hDeadlineTimes').value)||1);
+      const dlWarnRaw=parseInt(document.getElementById('hDeadlineWarn').value);
+      const dlWarn=isNaN(dlWarnRaw)?7:Math.max(0,Math.min(365,dlWarnRaw));
       if(!dlDate){showToast('请选择截止日期','❌');return}
-      Object.assign(patch,{deadlineDate:dlDate,deadlineTimes:dlTimes,days:[1,2,3,4,5,6,7],targetTimes:9999,trackTime:false,pomodoro:0,prereq:'',goalDays:0,totalTargetTimes:0});
+      Object.assign(patch,{deadlineDate:dlDate,deadlineTimes:dlTimes,deadlineWarn:dlWarn,days:[1,2,3,4,5,6,7],targetTimes:9999,trackTime:false,pomodoro:0,prereq:'',goalDays:0,totalTargetTimes:0});
     }else{
       // 从目标任务切回普通频率：清除目标字段
-      Object.assign(patch,{deadlineDate:'',deadlineTimes:0});
+      Object.assign(patch,{deadlineDate:'',deadlineTimes:0,deadlineWarn:7});
     }
     if(freq==='ebbinghaus'){
       // 艾宾浩斯：不适用字段强制清空；编辑已有任务保留 ebbStage/ebbNext（不打断复习进度）
@@ -2253,8 +2285,10 @@ function saveHabit(memberId,id){
     if(freq==='deadline'){
       const dlDate=document.getElementById('hDeadlineDate').value;
       const dlTimes=Math.max(1,parseInt(document.getElementById('hDeadlineTimes').value)||1);
+      const dlWarnRaw=parseInt(document.getElementById('hDeadlineWarn').value);
+      const dlWarn=isNaN(dlWarnRaw)?7:Math.max(0,Math.min(365,dlWarnRaw));
       if(!dlDate){showToast('请选择截止日期','❌');return}
-      nh.deadlineDate=dlDate;nh.deadlineTimes=dlTimes;nh.days=[1,2,3,4,5,6,7];nh.targetTimes=9999;nh.trackTime=false;nh.pomodoro=0;nh.prereq='';nh.goalDays=0;nh.totalTargetTimes=0;
+      nh.deadlineDate=dlDate;nh.deadlineTimes=dlTimes;nh.deadlineWarn=dlWarn;nh.days=[1,2,3,4,5,6,7];nh.targetTimes=9999;nh.trackTime=false;nh.pomodoro=0;nh.prereq='';nh.goalDays=0;nh.totalTargetTimes=0;
     }
     if(freq==='ebbinghaus'){nh.days=[1,2,3,4,5,6,7];nh.targetTimes=1;nh.trackTime=false;nh.pomodoro=0;nh.prereq='';nh.goalDays=0;nh.totalTargetTimes=0;nh.ebbStage=0;nh.ebbNext=null}
     m.habits.push(nh);
@@ -2317,7 +2351,12 @@ function openTemplateEditor(id){
         <input type="date" id="tDeadlineDate" value="${t&&t.deadlineDate?t.deadlineDate:''}" style="flex:1">
         <input type="number" id="tDeadlineTimes" value="${t&&t.deadlineTimes?t.deadlineTimes:3}" min="1" max="999" step="1" placeholder="次数" style="width:90px">
       </div>
-      <div style="font-size:11px;color:var(--text-2);margin-top:4px">下发后从下发日起累计；模板修改截止日期不影响已下发任务</div></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--text-1)">剩余</span>
+        <input type="number" id="tDeadlineWarn" value="${t&&t.deadlineWarn!==undefined&&t.deadlineWarn!==null?t.deadlineWarn:7}" min="0" max="365" step="1" style="width:60px">
+        <span style="font-size:13px;color:var(--text-1)">天内红色提醒（0 = 不提醒）</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-2);margin-top:4px">下发后从下发日起累计；模板修改截止日期不影响已下发任务；临近截止时卡片变红、剩余天数红色加粗展示</div></div>
     <div class="form-group" id="tDaysGroup"><label>执行日期</label><div>${dayCk}</div></div>
     <div class="form-group" id="tTimesGroup"><label>每日目标次数（默认 1，如每天喝 3 次水填 3）</label>
       <input type="number" id="tTimes" value="${t&&t.targetTimes?t.targetTimes:1}" min="1" max="20" step="1" ${t&&t.points<0?'disabled':''}>
@@ -2386,10 +2425,12 @@ function saveTemplate(id){
     if(freq==='deadline'){
       const dlDate=document.getElementById('tDeadlineDate').value;
       const dlTimes=Math.max(1,parseInt(document.getElementById('tDeadlineTimes').value)||1);
+      const dlWarnRaw=parseInt(document.getElementById('tDeadlineWarn').value);
+      const dlWarn=isNaN(dlWarnRaw)?7:Math.max(0,Math.min(365,dlWarnRaw));
       if(!dlDate){showToast('请选择截止日期','❌');return}
-      Object.assign(patch,{deadlineDate:dlDate,deadlineTimes:dlTimes,days:[1,2,3,4,5,6,7],targetTimes:9999,trackTime:false,pomodoro:0,goalDays:0,totalTargetTimes:0});
+      Object.assign(patch,{deadlineDate:dlDate,deadlineTimes:dlTimes,deadlineWarn:dlWarn,days:[1,2,3,4,5,6,7],targetTimes:9999,trackTime:false,pomodoro:0,goalDays:0,totalTargetTimes:0});
     }else{
-      Object.assign(patch,{deadlineDate:'',deadlineTimes:0});
+      Object.assign(patch,{deadlineDate:'',deadlineTimes:0,deadlineWarn:7});
     }
     if(freq==='ebbinghaus')Object.assign(patch,{days:[1,2,3,4,5,6,7],targetTimes:1,trackTime:false,pomodoro:0,goalDays:0,totalTargetTimes:0});
     Object.assign(t,patch);
@@ -2398,8 +2439,10 @@ function saveTemplate(id){
     if(freq==='deadline'){
       const dlDate=document.getElementById('tDeadlineDate').value;
       const dlTimes=Math.max(1,parseInt(document.getElementById('tDeadlineTimes').value)||1);
+      const dlWarnRaw=parseInt(document.getElementById('tDeadlineWarn').value);
+      const dlWarn=isNaN(dlWarnRaw)?7:Math.max(0,Math.min(365,dlWarnRaw));
       if(!dlDate){showToast('请选择截止日期','❌');return}
-      nt.deadlineDate=dlDate;nt.deadlineTimes=dlTimes;nt.days=[1,2,3,4,5,6,7];nt.targetTimes=9999;nt.trackTime=false;nt.pomodoro=0;nt.goalDays=0;nt.totalTargetTimes=0;
+      nt.deadlineDate=dlDate;nt.deadlineTimes=dlTimes;nt.deadlineWarn=dlWarn;nt.days=[1,2,3,4,5,6,7];nt.targetTimes=9999;nt.trackTime=false;nt.pomodoro=0;nt.goalDays=0;nt.totalTargetTimes=0;
     }
     if(freq==='ebbinghaus'){nt.days=[1,2,3,4,5,6,7];nt.targetTimes=1;nt.trackTime=false;nt.pomodoro=0;nt.goalDays=0;nt.totalTargetTimes=0}
     state.habitTemplates.push(nt);
@@ -2469,7 +2512,7 @@ function assignTemplate(id){
     return;
   }
   const nh={id:uid(),name:t.name,icon:t.icon,points:t.points,freq:t.freq,days:t.days,goalDays:t.goalDays||0,totalTargetTimes:t.totalTargetTimes||0,trackTime:!!t.trackTime,pomodoro:t.pomodoro||0,targetTimes:t.targetTimes||1,templateId:t.id,active:true};
-  if(t.freq==='deadline'){nh.deadlineDate=t.deadlineDate;nh.deadlineTimes=t.deadlineTimes||1} // 目标任务继承截止设置
+  if(t.freq==='deadline'){nh.deadlineDate=t.deadlineDate;nh.deadlineTimes=t.deadlineTimes||1;nh.deadlineWarn=goalWarnDays(t)} // 目标任务继承截止设置（含红色提醒阈值）
   if(t.freq==='ebbinghaus'){nh.ebbStage=0;nh.ebbNext=null} // 下发的记忆任务从新学开始
   m.habits.push(nh);
   saveData();closeModal();render();
