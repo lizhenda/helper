@@ -1,24 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFC069"/>
-      <stop offset="1" stop-color="#F2871F"/>
+      <stop offset="0" stop-color="#5FB4EC"/>
+      <stop offset="1" stop-color="#3A8BD6"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- 绶带：八字 + Y 形分叉尾（勋章） -->
-  <g fill="none" stroke="#fff" stroke-width="70" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M196 248 L104 472 L84 512"/>
-    <path d="M196 248 L104 472 L128 512"/>
-    <path d="M316 248 L408 472 L384 512"/>
-    <path d="M316 248 L408 472 L428 512"/>
-  </g>
-  <!-- 五角星：阴影层 + 主层 -->
-  <polygon points="256,81 298.3,197.8 422.4,201.9 325.6,275.4 358.9,397.6 256,328 153.1,397.6 186.4,275.4 89.6,201.9 213.7,197.8" fill="#EF9A3F" transform="translate(0,8)"/>
-  <polygon points="256,81 298.3,197.8 422.4,201.9 325.6,275.4 358.9,397.6 256,328 153.1,397.6 186.4,275.4 89.6,201.9 213.7,197.8" fill="#FFD45E"/>
-  <!-- 对勾 -->
-  <path d="M178 300 L238 356 L352 212" fill="none" stroke="#fff" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- 两侧闪光 -->
-  <polygon points="150,128 163.6,154.8 176,158 163.6,166.6 150,188 136.4,166.6 124,158 136.4,154.8" fill="#fff"/>
-  <polygon points="362,144 371.4,162.9 380.5,168 373.6,172.3 362,186 350.4,172.3 343.5,168 352.6,162.9" fill="#fff"/>
+  <path d="M150 262 L230 342 L368 180" fill="none" stroke="#fff" stroke-width="78" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
