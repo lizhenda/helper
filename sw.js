@@ -1,5 +1,5 @@
 // Service Worker — 离线缓存（首次加载后可断网使用）
-const CACHE='habit-tracker-v9';
+const CACHE='habit-tracker-v10';
 const ASSETS=['/helper/','/helper/index.html','/helper/manifest.json','/helper/icon.svg','/helper/icon-192.png','/helper/icon-512.png','/helper/icon-maskable-512.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
